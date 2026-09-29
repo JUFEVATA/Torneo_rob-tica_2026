@@ -2,7 +2,7 @@
 
 ## Entrega por rondas
 
-- 57 pruebas locales con Python 3.14: dominio, persistencia, Google Sheets simulado y Streamlit AppTest.
+- 59 pruebas locales con Python 3.14: dominio, persistencia, Google Sheets simulado y Streamlit AppTest.
 - Importación del boletín proporcionado: 85 equipos, grupos 22 / 21 / 21 / 21, 32 cupos, nombres originales.
 - Recorrido automatizado completo: grupos → dieciseisavos → octavos → cuartos → semifinal → final → campeón. Comprobación de participantes restantes e historial de todas las fases.
 - Rechazo de importaciones incompletas, duplicados y resultados incompatibles; correcciones confirmadas y detección de revisiones obsoletas.
@@ -28,3 +28,5 @@ La sincronización necesita una sesión de Streamlit abierta. Las pruebas locale
 - Pruebas de relectura sin redistribución, datos inválidos, reserva persistente, varias competencias y formulario de administrador.
 - El formato se escribió y validó por la API en una hoja temporal aislada del torneo. Se revisó visualmente su exportación PDF nativa de Google Sheets.
 - Al preparar el tablero se detectaron 32 clasificados y 16 partidos reales. La migración de formato conserva ese progreso; el ejemplo de 54 equipos solo se probó en la hoja temporal.
+
+- Las decisiones incompatibles en Sheets no bloquean la vista pública ni se sobrescriben: se conserva el último estado válido con un aviso.

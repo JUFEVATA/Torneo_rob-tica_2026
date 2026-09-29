@@ -172,3 +172,13 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(len(c.teams),54);self.assertEqual(len(c.reserve),31)
         self.page(at,"Equipos")
         self.assertTrue(any(len(frame.value)==31 for frame in at.dataframe))
+
+    def test_invalid_sheet_notice_keeps_public_navigation_available(self):
+        self.load_tournament()
+        state,rev=self.repo.read();state.sync_error="Partido con dos ganadores; revisar en Sheets."
+        with patch("services.runtime.read_state",return_value=(state,rev)):
+            at=self.app()
+            self.assertTrue(at.warning)
+            self.assertFalse(at.error)
+            self.page(at,"Participantes actuales")
+            self.assertEqual(len(at.dataframe[0].value),8)

@@ -92,3 +92,19 @@ class BoardTests(unittest.TestCase):
         tables['Grupos'][4][5]=8;tables['Grupos'][4][13]=True
         saved=apply_sheet_edits(state,tables)
         self.assertEqual(saved.competitions['Carrera'],state.competitions['Carrera'])
+
+    def test_invalid_sheet_decisions_keep_public_state_and_do_not_overwrite(self):
+        from core.tournament import iniciar_eliminatorias
+        from tests.test_core import tournament
+        state,c=tournament(4,2,4);iniciar_eliminatorias(c)
+        server=FakeSpreadsheet();repo=GoogleSheetsRepository(server)
+        _,rev=repo.read();repo.transact(rev,lambda s:s.competitions.update(state.competitions))
+        server.tables['Semifinal'][3][2]='Clasifica'
+        server.tables['Semifinal'][4][2]='Clasifica'
+        before=len(server.writes)
+        saved,rev=repo.read()
+        self.assertEqual(saved,state)
+        self.assertTrue(saved.sync_error)
+        self.assertEqual(len(server.writes),before)
+        with self.assertRaises(ValidationError):repo.transact(rev,lambda s:None)
+        self.assertEqual(server.tables['Semifinal'][4][2],'Clasifica')

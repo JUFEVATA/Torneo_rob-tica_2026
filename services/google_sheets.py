@@ -60,6 +60,7 @@ class GoogleSheetsRepository:
                         next_id += 1
                     used.add(next_id)
                     props = {"sheetId": next_id, "title": tab,
+                             "hidden": tab not in ["Grupos", *STAGE_TABS] or tab == "32 avos",
                              "gridProperties": {"rowCount": 100, "columnCount": 20,
                                                 "frozenRowCount": 2 if tab == "Grupos" else 1}}
                     self.properties[tab] = props
@@ -83,7 +84,13 @@ class GoogleSheetsRepository:
             state = decode(tables)
             # Las hojas visibles son entradas editables; las internas conservan el
             # historial. Una importación inválida no escribe ningún dato.
-            updated = apply_sheet_edits(state, tables)
+            try:
+                updated = apply_sheet_edits(state, tables)
+            except ValidationError as error:
+                # Un borrador inválido en la hoja no deja fuera de servicio al
+                # público ni se sobrescribe. Se muestra el último estado válido.
+                state.sync_error = str(error)
+                return state, fingerprint(tables)
             projections = stage_tables(updated)
             preserve_drafts(projections["Grupos"], tables.get("Grupos", []))
             needs_sync = updated != state or any(
@@ -100,6 +107,7 @@ class GoogleSheetsRepository:
             if fingerprint(original) != revision:
                 raise ConflictError("Los datos cambiaron en Google Sheets. Actualiza y vuelve a intentar.")
             state = deepcopy(decode(original))
+            apply_sheet_edits(state, original)  # no sobrescribir decisiones manuales inválidas
             operation(state)
             validar_estado(state)
             self._commit(state, original)

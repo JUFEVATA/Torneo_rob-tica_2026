@@ -41,7 +41,7 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 - Edita nombres y desplegables en las hojas visibles. No alteres las columnas ocultas de IDs ni las pestañas internas.
 - Durante las eliminatorias, la clasificación de grupos queda cerrada. Para modificarla, un administrador debe reiniciar las eliminatorias con confirmación.
 - Para cambiar un ganador ya guardado, usa **Eliminatorias → Corregir resultado** y confirma. Se anulan los resultados posteriores afectados; las demás ramas se conservan. Si intentaste cambiarlo directamente en Sheets, restaura primero su estado anterior para que la lectura vuelva a ser válida.
-- Una lista incompleta, nombres duplicados, grupos desequilibrados o resultados incompatibles generan un error; no se guarda una importación parcial.
+- Una lista incompleta, nombres duplicados, grupos desequilibrados o resultados incompatibles quedan pendientes de revisión. La vista pública conserva los últimos resultados válidos; el administrador ve el motivo. Corrige la hoja antes de guardar otras operaciones: la app no borra las selecciones incompatibles ni guarda una importación parcial.
 - Para una nueva competencia utiliza un nombre diferente e importa desde Configuración. No borres bloques de otras competencias.
 - Los torneos requieren al menos dos equipos. Los cupos admitidos son 2, 4, 8, 16, 32 o 64, sin pases libres. Con 64 cupos aparece también **32 avos**.
 

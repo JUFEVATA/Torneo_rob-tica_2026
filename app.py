@@ -105,6 +105,10 @@ def content():
         st.rerun()  # mantiene actualizado el selector al crear otra competencia
     c = state.competitions.get(selected)
     editable = is_admin()
+    if getattr(state, "sync_error", ""):
+        st.warning("Hay decisiones en la hoja pendientes de revisión. Se muestran los últimos resultados validados.")
+        if editable:
+            st.error(state.sync_error)
     if page == "Configuración" or not c:
         if editable:
             configuracion.render(state, c, mode, revision, True)
