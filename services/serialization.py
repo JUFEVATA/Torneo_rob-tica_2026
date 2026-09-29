@@ -1,4 +1,4 @@
-"""Conversión entre el modelo y las seis pestañas públicas del libro."""
+"""Conversión entre el modelo y las pestañas persistentes del libro."""
 from dataclasses import asdict, fields
 import hashlib
 import json
@@ -12,6 +12,7 @@ HEADERS = {
     "Configuracion": ["competencia", "campo", "valor"],
     "Equipos": [f.name for f in fields(Team)],
     "Grupos": ["Sin grupos"],
+    "Reserva": [f.name for f in fields(Team)],
     "Partidos": [f.name for f in fields(Match)] + ["nombre_equipo_1", "nombre_equipo_2", "nombre_ganador"],
     "Clasificados": ["competencia", "fase_destino", "id_equipo", "nombre_equipo", "grupo"],
     "Resultados": ["competencia", "posicion", "id_equipo", "nombre_equipo"],
@@ -74,13 +75,14 @@ def decode(tables: dict) -> State:
             state.competitions[name] = Competition(Config(**config))
         except TypeError:
             raise ValidationError(f"Faltan campos obligatorios en Configuracion para {name}.") from None
-    for row in records(tables.get("Equipos", []), "Equipos"):
-        data = {f.name: str(row[f.name]) for f in fields(Team)}
-        data["clasificado"] = boolean(row["clasificado"])
-        data["numero_participantes"] = entero(row["numero_participantes"] or 0)
-        if data["competencia"] not in state.competitions:
-            raise ValidationError("Equipo de una competencia no configurada.")
-        state.competitions[data["competencia"]].teams.append(Team(**data))
+    for tab, attribute in (("Equipos", "teams"), ("Reserva", "reserve")):
+        for row in records(tables.get(tab, []), tab):
+            data = {f.name: str(row[f.name]) for f in fields(Team)}
+            data["clasificado"] = boolean(row["clasificado"])
+            data["numero_participantes"] = entero(row["numero_participantes"] or 0)
+            if data["competencia"] not in state.competitions:
+                raise ValidationError("Equipo de una competencia no configurada.")
+            getattr(state.competitions[data["competencia"]], attribute).append(Team(**data))
     for row in records(tables.get("Partidos", []), "Partidos"):
         data = {f.name: str(row[f.name]) for f in fields(Match)}
         data["numero_partido"] = entero(row["numero_partido"])
@@ -112,6 +114,8 @@ def encode(state: State) -> dict[str, list[list]]:
             tables["Configuracion"].append([name, key, value])
         for t in c.teams:
             tables["Equipos"].append(list(asdict(t).values()))
+        for t in c.reserve:
+            tables["Reserva"].append(list(asdict(t).values()))
         if c.config.torneo_iniciado:
             for index in range(c.config.numero_grupos):
                 grupo = nombre_columna(index + 1)

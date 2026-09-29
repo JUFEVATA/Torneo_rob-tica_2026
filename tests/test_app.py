@@ -157,3 +157,18 @@ class InterfaceTests(unittest.TestCase):
         widget(at.selectbox,"Estado de " + team.nombre_equipo).set_value("Pendiente").run()
         self.assertFalse(at.exception)
         self.assertEqual(self.repo.read()[0].competitions["Sumo"].teams[0].estado,"Pendiente")
+
+    def test_admin_resize_form_keeps_reserved_names(self):
+        from tests.test_sheet_flow import imported
+        _,rev=self.repo.read()
+        state=imported()
+        self.repo.transact(rev,lambda s:s.competitions.update(state.competitions))
+        at=self.app(True);self.page(at,"Configuración")
+        widget(at.number_input,"Equipos inscritos en competencia").set_value(54)
+        widget(at.number_input,"Cantidad de bloques / grupos").set_value(8)
+        widget(at.button,"Aplicar distribución").click().run()
+        self.assertFalse(at.exception)
+        c=self.repo.read()[0].competitions['Sumo']
+        self.assertEqual(len(c.teams),54);self.assertEqual(len(c.reserve),31)
+        self.page(at,"Equipos")
+        self.assertTrue(any(len(frame.value)==31 for frame in at.dataframe))

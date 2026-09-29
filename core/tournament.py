@@ -115,6 +115,18 @@ def clasificar(c: Competition, team_id: str, estado: str) -> None:
     if equipo is None:
         raise ValidationError("El equipo no existe.")
     if estado == "Clasificado" and not equipo.clasificado:
+        for t in c.reserve:
+            if not t.id_equipo or t.id_equipo in ids or t.competencia != nombre:
+                raise ValidationError("ID de reserva duplicado o competencia incorrecta.")
+            ids.add(t.id_equipo)
+            n = normalizar(t.nombre_equipo)
+            if not n or len(t.nombre_equipo) > 100 or n in nombres:
+                raise ValidationError("Nombre de reserva vacío o duplicado.")
+            nombres.add(n)
+            if t.grupo or t.estado != 'Pendiente' or t.clasificado:
+                raise ValidationError("Un equipo en reserva no puede tener grupo ni clasificación.")
+            if type(t.numero_participantes) is not int or t.numero_participantes < 0:
+                raise ValidationError("Participantes inválidos en Reserva.")
         if sum(t.clasificado for t in c.teams) >= c.config.cupos_clasificados:
             raise ValidationError("Ya se completaron todos los cupos de clasificación.")
     equipo.estado, equipo.clasificado = estado, estado == "Clasificado"
@@ -139,6 +151,7 @@ def reiniciar(c: Competition, alcance: str, confirmar: bool = False) -> None:
         raise ValidationError("El reinicio requiere confirmación.")
     if alcance == "Competencia completa":
         c.teams.clear()
+        c.reserve.clear()
         c.matches.clear()
         c.config.torneo_iniciado = False
     elif alcance == "Eliminatorias":
@@ -184,6 +197,18 @@ def validar_estado(state: State) -> None:
                 raise ValidationError("Participantes inválidos en Equipos.")
             if t.estado not in ("Pendiente", "Clasificado", "Eliminado") or t.clasificado != (t.estado == "Clasificado"):
                 raise ValidationError("En Equipos, clasificado y estado deben coincidir.")
+        for t in c.reserve:
+            if not t.id_equipo or t.id_equipo in ids or t.competencia != nombre:
+                raise ValidationError("ID de reserva duplicado o competencia incorrecta.")
+            ids.add(t.id_equipo)
+            n = normalizar(t.nombre_equipo)
+            if not n or len(t.nombre_equipo) > 100 or n in nombres:
+                raise ValidationError("Nombre de reserva vacío o duplicado.")
+            nombres.add(n)
+            if t.grupo or t.estado != 'Pendiente' or t.clasificado:
+                raise ValidationError("Un equipo en reserva no puede tener grupo ni clasificación.")
+            if type(t.numero_participantes) is not int or t.numero_participantes < 0:
+                raise ValidationError("Participantes inválidos en Reserva.")
         if sum(t.clasificado for t in c.teams) > c.config.cupos_clasificados:
             raise ValidationError("Hay más clasificados que cupos.")
         if c.config.torneo_iniciado:

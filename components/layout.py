@@ -14,7 +14,7 @@ h1,h2,h3 {font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.04em
 [data-testid="stSidebar"] input {color:#173B3D!important;}
 [data-testid="stSidebar"] [data-baseweb="select"] * {color:#173B3D;}
 [data-testid="stSidebar"] .stButton button {background:#0087C3;color:white;border:1px solid #FFFFFF;}
-.block-container {max-width:1440px;padding-top:2.5rem;padding-bottom:3rem;}
+.block-container {max-width:1920px;padding-top:2.5rem;padding-bottom:3rem;}
 .brand {font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:700;letter-spacing:-1px;}
 .brand span {color:#9FCF67;}
 .eyebrow {color:#647c81;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
@@ -28,7 +28,7 @@ h1,h2,h3 {font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.04em
 [data-testid="stMetricValue"] {font-family:'Space Grotesk',sans-serif;font-size:28px!important;}
 .group-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:16px;}
 .group-card {background:white;border:1px solid #dde5e5;border-radius:14px;overflow:hidden;}
-.group-head {padding:17px 20px;border-bottom:1px solid #e8eeed;font-weight:700;display:flex;justify-content:space-between;align-items:center;}
+.group-head {border-left:4px solid #0D9648;padding:17px 20px;border-bottom:1px solid #e8eeed;font-weight:700;display:flex;justify-content:space-between;align-items:center;}
 .group-count {color:#75898b;font-size:11px;font-weight:500;}
 .team-row {display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #f0f3f3;font-size:13px;}
 .team-row:last-child {border:0;}
@@ -89,7 +89,7 @@ def group_cards(c):
         for t in teams:
             style = "ok" if t.clasificado else "out" if t.estado == "Eliminado" else ""
             rows += f'<div class="team-row"><span>{escape(t.nombre_equipo)}</span><span class="badge {style}">{escape({'Clasificado': 'Clasifica', 'Eliminado': 'No clasifica'}.get(t.estado, t.estado))}</span></div>'
-        cards.append(f'<div class="group-card"><div class="group-head">Grupo {group}<span class="group-count">{len(teams)} EQUIPOS</span></div>{rows}</div>')
+        cards.append(f'<div class="group-card"><div class="group-head">Equipo {i+1}<span class="group-count">{len(teams):02d}</span></div>{rows}</div>')
     st.markdown('<div class="group-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
 
 

@@ -38,6 +38,17 @@ def render(state, c, mode, revision, admin):
     cfg = c.config
     st.subheader(cfg.competencia)
     if cfg.torneo_iniciado:
+        if not c.matches and all(t.estado == 'Pendiente' for t in c.teams):
+            with st.expander("Cantidad de equipos y grupos", expanded=True):
+                with st.form("resize_board"):
+                    total = st.number_input("Equipos inscritos en competencia", 2, 4096, len(c.teams))
+                    groups = st.number_input("Cantidad de bloques / grupos", 1, 4096, cfg.numero_grupos)
+                    cupos = st.selectbox("Clasificados que avanzan", [2,4,8,16,32,64], index=[2,4,8,16,32,64].index(cfg.cupos_clasificados))
+                    method = st.selectbox("Distribuir equipos", ["Orden original", "Sorteo aleatorio"])
+                    st.caption(f"{len(c.reserve)} equipos en reserva. Al reducir el total, se conservan los nombres sobrantes; al aumentarlo, se recuperan primero.")
+                    if st.form_submit_button("Aplicar distribución"):
+                        from core.group_board import resize_groups
+                        execute(mode, revision, lambda s: resize_groups(s.competitions[cfg.competencia], total, groups, cupos, method == "Sorteo aleatorio"), "Distribución actualizada.")
         st.success(f"Grupos guardados · {cfg.metodo_grupos} · Fase: {cfg.fase_actual}")
         st.write("Distribución: " + cfg.equipos_por_grupo)
         st.caption("Para cambiar grupos o cupos: Administración → reiniciar eliminatorias si existen → reiniciar fase de grupos.")

@@ -139,7 +139,7 @@ class PersistenceTests(unittest.TestCase):
         _, revision = repo.read()
         state, _ = tournament()
         _, stale = repo.transact(revision, lambda s: s.competitions.update(state.competitions))
-        server.tables["Grupos"][7][0] = "• Nombre manual"
+        server.tables["Grupos"][9][0] = "Nombre manual"
         self.assertEqual(repo.read()[0].competitions["Sumo"].teams[0].nombre_equipo, "Nombre manual")
         with self.assertRaises(ConflictError):
             repo.transact(stale, lambda s: None)

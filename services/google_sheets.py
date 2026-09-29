@@ -9,6 +9,8 @@ from threading import RLock
 import gspread
 from google.oauth2.service_account import Credentials
 
+from core.group_board import preserve_drafts
+from services.sheet_style import board_format_requests
 from core.models import ConflictError, ValidationError
 from core.tournament import validar_estado
 from core.sheet_flow import STAGE_TABS, STATES, stage_tables, apply_sheet_edits, normalized_rows
@@ -40,6 +42,7 @@ class GoogleSheetsRepository:
         self.spreadsheet = spreadsheet
         self.properties = {}
         self._initialized = False
+        self.group_rule_count = 0
 
     def initialize(self):
         with _LOCK:
@@ -47,6 +50,7 @@ class GoogleSheetsRepository:
                 return
             metadata = self.spreadsheet.fetch_sheet_metadata()
             self.properties = {s["properties"]["title"]: s["properties"] for s in metadata["sheets"]}
+            self.group_rule_count = next((len(s.get("conditionalFormats", [])) for s in metadata["sheets"] if s["properties"]["title"] == "Grupos"), 0)
             missing = [tab for tab in MANAGED_TABS if tab not in self.properties]
             if missing:
                 used = {s["sheetId"] for s in self.properties.values()}
@@ -81,6 +85,7 @@ class GoogleSheetsRepository:
             # historial. Una importación inválida no escribe ningún dato.
             updated = apply_sheet_edits(state, tables)
             projections = stage_tables(updated)
+            preserve_drafts(projections["Grupos"], tables.get("Grupos", []))
             needs_sync = updated != state or any(
                 normalized_rows(tables.get(tab, [])) != normalized_rows(rows)
                 for tab, rows in projections.items())
@@ -104,6 +109,7 @@ class GoogleSheetsRepository:
     def _commit(self, state, original):
         updated = encode(state)
         updated.update(stage_tables(state))
+        preserve_drafts(updated["Grupos"], original.get("Grupos", []))
         if fingerprint(self._tables()) != fingerprint(original):
             raise ConflictError("Se detectó una edición concurrente. No se escribió ningún cambio.")
         requests = [{"updateSheetProperties": {"properties": {"sheetId": self.properties['Grupos']['sheetId'], "hidden": False, "index": 0}, "fields": "hidden,index"}}]
@@ -116,12 +122,16 @@ class GoogleSheetsRepository:
             old = original.get(tab, [])
             height = max(len(rows), len(old), 2)
             width = max([len(r) for r in rows + old] or [1])
+            if tab == "Grupos":
+                width = max(width, 24)
             grid = props["gridProperties"]
             if height > grid["rowCount"] or width > grid["columnCount"]:
                 requests.append({"updateSheetProperties": {"properties": {"sheetId": sheet_id,
                     "gridProperties": {"rowCount": max(height, grid["rowCount"]),
                                        "columnCount": max(width, grid["columnCount"])}},
                     "fields": "gridProperties(rowCount,columnCount)"}})
+            if tab == "Grupos":
+                requests.append({"unmergeCells": {"range": {"sheetId": sheet_id}}})
             requests.append({"updateCells": {"range": {"sheetId": sheet_id, "startRowIndex": 0,
                 "endRowIndex": height, "startColumnIndex": 0, "endColumnIndex": width},
                 "rows": [{"values": [cell(v) for v in row]} for row in rows],
@@ -131,7 +141,9 @@ class GoogleSheetsRepository:
                 "cell": {"userEnteredFormat": {"backgroundColor": {"red": .051, "green": .588, "blue": .282},
                     "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}},
                 "fields": "userEnteredFormat"}})
-            if tab == 'Grupos' or tab in STAGE_TABS:
+            if tab == 'Grupos':
+                requests.extend(board_format_requests(sheet_id, rows, height, max(width,grid['columnCount']), self.group_rule_count))
+            elif tab in STAGE_TABS:
                 status_col, id_col = (1, 2) if tab == 'Grupos' else (2, 4)
                 requests.append({"repeatCell": {"range": {"sheetId": sheet_id, "startRowIndex": 1, "endRowIndex": height},
                     "cell": {"userEnteredFormat": {"backgroundColor": {"red": 1, "green": 1, "blue": 1},

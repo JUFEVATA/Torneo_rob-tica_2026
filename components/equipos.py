@@ -12,6 +12,10 @@ def render(c, mode, revision, admin):
     if not admin:
         return
     st.header("Equipos")
+    if c.reserve:
+        with st.expander(f"Equipos en reserva ({len(c.reserve)})"):
+            st.dataframe(pd.DataFrame([{"Nombre": t.nombre_equipo} for t in c.reserve]), hide_index=True, width="stretch")
+            st.caption("Aumenta la cantidad en Configuración para reincorporarlos antes de clasificar.")
     registered = sum(t.numero_participantes for t in c.teams)
     st.caption(f"{len(c.teams)} / {c.config.numero_equipos} equipos · Participantes registrados: {registered} / {c.config.numero_participantes} total esperado")
     if registered > c.config.numero_participantes:

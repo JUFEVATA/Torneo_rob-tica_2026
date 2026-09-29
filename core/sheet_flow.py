@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 import re
 
+from core.group_board import MARKER, board_rows, parse_board, resize_groups
 from core.models import Competition, Config, State, Team, ValidationError, new_id
 from core.grupos import distribuir, nombre_columna
 from core.tournament import normalizar, validar_estado, iniciar_eliminatorias
@@ -121,8 +122,8 @@ def parse_rosters(rows: list[list]) -> list[Roster]:
 
 def import_roster(state: State, roster: Roster, replace=False) -> None:
     existing = state.competitions.get(roster.name)
-    previous = {normalizar(t.nombre_equipo): t for t in existing.teams} if existing else {}
-    previous_ids = {t.id_equipo: t for t in existing.teams} if existing else {}
+    previous = {normalizar(t.nombre_equipo): t for t in existing.teams + existing.reserve} if existing else {}
+    previous_ids = {t.id_equipo: t for t in existing.teams + existing.reserve} if existing else {}
     cupos = existing.config.cupos_clasificados if existing else min(32, max(n for n in FASES if n <= len(roster.entries)))
     if cupos > len(roster.entries):
         raise ValidationError('La lista tiene menos equipos que los cupos configurados.')
@@ -140,6 +141,12 @@ def import_roster(state: State, roster: Roster, replace=False) -> None:
                     equipos_por_grupo=', '.join(map(str, distribuir(len(teams), roster.groups))),
                     metodo_grupos='Listado importado', titulo=roster.title, fecha=roster.date)
     candidate = Competition(config, teams)
+    if existing:
+        candidate.reserve = [deepcopy(t) for t in existing.reserve if t.id_equipo not in {team.id_equipo for team in teams}]
+        order = {t.id_equipo:i for i,t in enumerate(existing.teams)}
+        candidate.teams.sort(key=lambda t:order.get(t.id_equipo, len(order)))
+        if {t.id_equipo:t.grupo for t in teams} == {t.id_equipo:t.grupo for t in existing.teams}:
+            candidate.config.metodo_grupos = existing.config.metodo_grupos
     if existing and existing.matches and not replace:
         # Después de cerrar grupos solo se permiten nombres/participantes; el resto
         # requiere reiniciar eliminatorias desde la administración.
@@ -189,7 +196,7 @@ def phase_rows(state: State, phase: str) -> list[list]:
 
 
 def stage_tables(state: State) -> dict:
-    return {'Grupos': group_rows(state), **{tab: phase_rows(state, phase) for phase, tab in PHASE_SHEETS.items()}}
+    return {'Grupos': board_rows(state), **{tab: phase_rows(state, phase) for phase, tab in PHASE_SHEETS.items()}}
 
 
 def apply_sheet_edits(state: State, tables: dict) -> State:
@@ -200,6 +207,10 @@ def apply_sheet_edits(state: State, tables: dict) -> State:
     """
     updated = deepcopy(state)
     raw_groups = tables.get('Grupos', [])
+    actions = {}
+    is_board = bool(raw_groups and raw_groups[0] and raw_groups[0][0] == MARKER)
+    if is_board:
+        raw_groups, actions = parse_board(state, raw_groups)
     if raw_groups and raw_groups[0] and str(raw_groups[0][0]).startswith('TORNEOS DE ROBÓTICA') and normalized_rows(raw_groups) != normalized_rows(group_rows(state)):
         rosters = parse_rosters(raw_groups)
         present = {r.name for r in rosters}
@@ -214,6 +225,8 @@ def apply_sheet_edits(state: State, tables: dict) -> State:
             changed = before is None or {t.id_equipo:t.estado for t in before.teams} != {t.id_equipo:t.estado for t in c.teams}
             if changed and not c.matches and all(t.estado != "Pendiente" for t in c.teams) and sum(t.clasificado for t in c.teams) == c.config.cupos_clasificados:
                 iniciar_eliminatorias(c)
+    for name, quantities in actions.items():
+        resize_groups(updated.competitions[name], *quantities)
     legacy = not raw_groups or not raw_groups[0] or not str(raw_groups[0][0]).startswith('TORNEOS DE ROBÓTICA')
     for phase, tab in PHASE_SHEETS.items():
         if legacy and not tables.get(tab):

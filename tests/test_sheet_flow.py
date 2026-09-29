@@ -6,6 +6,11 @@ from core.sheet_flow import (parse_rosters, import_roster, stage_tables, apply_s
                              active_participants, history_rows, PHASE_SHEETS, normalized_rows)
 from services.google_sheets import GoogleSheetsRepository
 from tests.test_persistence import FakeSpreadsheet
+from core.group_board import value, STRIDE, CARDS_PER_ROW
+
+def team_cells(rows):
+    return [(r,col) for r,row in enumerate(rows) for col in range(0,CARDS_PER_ROW*STRIDE,STRIDE)
+            if value(rows,r,col+2) and not str(value(rows,r,col+2)).startswith("group:")]
 
 EXAMPLE = Path(__file__).resolve().parents[1] / 'examples' / 'sumo2026.txt'
 
@@ -39,9 +44,9 @@ class SheetFlowTests(unittest.TestCase):
     def test_sheet_entire_tournament_current_and_history(self):
         state = imported()
         tables = stage_tables(state)
-        teams = [r for r in tables['Grupos'] if len(r)==3 and r[2]!='id_equipo']
-        for i,row in enumerate(teams):
-            row[1] = 'Clasifica' if i<32 else 'No clasifica'
+        teams = team_cells(tables['Grupos'])
+        for i,(r,col) in enumerate(teams):
+            tables['Grupos'][r][col+1] = 'Clasifica' if i<32 else 'No clasifica'
         state = apply_sheet_edits(state, tables)
         c = state.competitions['Sumo']
         self.assertEqual(len(c.matches),16)
@@ -62,9 +67,9 @@ class SheetFlowTests(unittest.TestCase):
     def test_conflicting_results_atomic_and_corrections_guarded(self):
         state = imported()
         tables = stage_tables(state)
-        rows = [r for r in tables['Grupos'] if len(r)==3 and r[2]!='id_equipo']
-        for i,row in enumerate(rows):
-            row[1]='Clasifica' if i<32 else 'No clasifica'
+        rows = team_cells(tables['Grupos'])
+        for i,(r,col) in enumerate(rows):
+            tables['Grupos'][r][col+1]='Clasifica' if i<32 else 'No clasifica'
         state = apply_sheet_edits(state,tables)
         tables = stage_tables(state)
         tables['16 avos'][3][2] = tables['16 avos'][4][2] = 'Clasifica'
@@ -89,7 +94,7 @@ class SheetFlowTests(unittest.TestCase):
         for _ in range(3):
             self.assertEqual(repo.read()[0],state)
         self.assertEqual(len(server.writes),before)
-        server.tables['Grupos'][7][1]='Clasifica'
+        server.tables['Grupos'][9][1]='Clasifica'
         updated,_=repo.read()
         self.assertEqual(updated.competitions['Sumo'].teams[0].estado,'Clasificado')
         self.assertEqual(len(server.writes),before+1)
@@ -103,9 +108,9 @@ class SheetFlowTests(unittest.TestCase):
     def test_pending_groups_remain_editable_and_bulk_paste_replaces_old_cells(self):
         state = imported()
         tables = stage_tables(state)
-        rows = [r for r in tables['Grupos'] if len(r)==3 and r[2]!='id_equipo']
-        for row in rows[:32]:
-            row[1]='Clasifica'
+        rows = team_cells(tables['Grupos'])
+        for r,col in rows[:32]:
+            tables['Grupos'][r][col+1]='Clasifica'
         updated = apply_sheet_edits(state,tables)
         self.assertFalse(updated.competitions['Sumo'].matches)
         self.assertEqual(len(active_participants(updated.competitions['Sumo'])),85)
