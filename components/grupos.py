@@ -2,7 +2,7 @@ import streamlit as st
 
 from components.layout import group_cards
 from core.grupos import nombre_columna
-from core.tournament import clasificar
+from core.tournament import clasificar, iniciar_eliminatorias
 from services.runtime import execute
 
 
@@ -20,7 +20,14 @@ def render(c, mode, revision, admin):
     for t in [t for t in c.teams if t.grupo == group]:
         with st.container(border=True):
             st.write(f"**{t.nombre_equipo}** · {t.estado}")
-            a, b, d = st.columns(3)
-            for container, label, status in ((a, "✓ CLASIFICA", "Clasificado"), (b, "✗ NO CLASIFICA", "Eliminado"), (d, "↺ Pendiente", "Pendiente")):
-                if container.button(label, key=f"class_{t.id_equipo}_{status}", disabled=t.estado == status):
-                    execute(mode, revision, lambda s, tid=t.id_equipo, value=status: clasificar(s.competitions[c.config.competencia], tid, value))
+            labels = {"Pendiente": "Pendiente", "Clasifica": "Clasificado", "No clasifica": "Eliminado"}
+            selected = st.selectbox("Estado de " + t.nombre_equipo, list(labels),
+                                    index=list(labels.values()).index(t.estado),
+                                    key=f"class_{t.id_equipo}_{revision}", label_visibility="collapsed")
+            if labels[selected] != t.estado:
+                def operation(s, tid=t.id_equipo, value=labels[selected]):
+                    current = s.competitions[c.config.competencia]
+                    clasificar(current, tid, value)
+                    if all(team.estado != "Pendiente" for team in current.teams) and sum(team.clasificado for team in current.teams) == current.config.cupos_clasificados:
+                        iniciar_eliminatorias(current)
+                execute(mode, revision, operation)

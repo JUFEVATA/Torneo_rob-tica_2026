@@ -1,48 +1,21 @@
-# Verificación de la entrega
+# Verificación · 29 de septiembre de 2026
 
-Fecha: 28 de septiembre de 2026.
+## Entrega por rondas
 
-## Resultado ejecutado
+- 49 pruebas locales con Python 3.14: dominio, persistencia, Google Sheets simulado y Streamlit AppTest.
+- Importación del boletín proporcionado: 85 equipos, grupos 22 / 21 / 21 / 21, 32 cupos, nombres originales.
+- Recorrido automatizado completo: grupos → dieciseisavos → octavos → cuartos → semifinal → final → campeón. Comprobación de participantes restantes e historial de todas las fases.
+- Rechazo de importaciones incompletas, duplicados y resultados incompatibles; correcciones confirmadas y detección de revisiones obsoletas.
+- Menú público sin Configuración, Equipos ni Administración; importación y desplegable del administrador probados con AppTest.
+- Inspección visual en navegador local: nueva navegación y paleta EPM. Los colores proceden del brief del usuario en la tarea «Crear app local de sorteos STEM».
 
-```text
-python -m unittest discover -s tests -v
-Ran 41 tests
-OK
+## Google Sheets real
 
-python -m compileall -q app.py core services components utils tests
-Sin errores
+- Cargados los 85 equipos en el libro indicado por el usuario, todos Pendiente.
+- Verificados por API los 85 desplegables y las seis hojas visibles: Grupos, 16 avos, 8vos, 4tos, Semifinal y Final.
+- Prueba real: una clasificación temporal introducida en la celda del desplegable fue importada al estado del torneo; después se restauró Pendiente y se verificó la restauración completa.
+- Las lecturas repetidas conservan la misma revisión y no regeneran el torneo.
+- Copias de las seis tablas previas conservadas como hojas ocultas «_Antes rondas …»; respaldos anteriores preservados.
+- La comprobación de Sheets se realizó con su API autenticada; no se verificó su apariencia en una sesión nativa de Google Sheets iniciada en el navegador.
 
-python -m pip check
-No broken requirements found.
-```
-
-Entorno local: Python 3.14.6; Streamlit 1.64.0; pandas 3.0.6; gspread 6.2.1; google-auth 2.59.0. La matriz de CI de Python 3.12/3.13/3.14 está configurada, pero no se ha ejecutado en GitHub desde esta entrega.
-
-## Cobertura comprobada
-
-- Los cinco casos obligatorios: 10/3, 17/4, 23/5, 32/6 y 32/8.
-- Conservación de suma, grupos no vacíos, orden de sobrantes y diferencia máxima de uno para todas las combinaciones válidas de 1 a 199 equipos.
-- Distribución circular exacta, sorteo guardado, grupos AA y AB.
-- Torneos completos con 2, 4, 8, 16, 32 y 64 clasificados; 32 participantes producen 31 partidos y un campeón.
-- Bloqueo de fases duplicadas, cupos incompletos, partidos contra sí mismo y ganadores ajenos al cruce.
-- Correcciones con confirmación, anulación de resultados descendientes y conservación de ramas independientes.
-- Reinicios confirmados, aislamiento entre competencias y nombres de equipos editables sin romper referencias.
-- Serialización de las seis pestañas; recuperación del campeón; rechazo de datos manuales inválidos.
-- Persistencia en archivo al abrir otro repositorio/sesión; rechazo de escrituras antiguas y dos escrituras simultáneas dentro de un proceso.
-- Adaptador de Google Sheets probado con una API simulada: creación de pestañas, un solo commit por lote, edición manual detectada, fallo de escritura y eliminación de filas antiguas.
-- Importación CSV y neutralización de nombres que aparentan fórmulas.
-- AppTest: nueve pantallas públicas y de administrador, contraseña incorrecta, creación desde cero, grupos, torneo completo desde widgets, edición persistente entre sesiones y reinicio con doble confirmación.
-
-## Revisión de navegador
-
-Se inició Streamlit localmente y se revisó la vista pública con los datos de demostración. Se verificaron tarjetas y métricas adaptables en tamaños de escritorio (1440 px) y móvil (390 px). Las métricas se ajustaron a una cuadrícula que evita truncarlas en pantallas estrechas.
-
-Se recargó el navegador y se detuvo/reinició el proceso Streamlit. Los 32 equipos, distribución 6/6/5/5/5/5 y 12 clasificados de demostración se conservaron en el archivo local. Las pruebas AppTest verifican además una sesión nueva sobre el mismo repositorio persistente.
-
-## Pendiente en tu infraestructura
-
-No se proporcionaron credenciales reales, ID de Google Sheet ni repositorio remoto. Por tanto, **no se ha afirmado ni verificado una conexión real a Google Sheets, un push a GitHub o un despliegue en Streamlit Community Cloud**.
-
-Antes del evento, completa los pasos de Google Cloud y Secrets del README y ejecuta su lista de aceptación en la hoja real: F5, cierre del navegador, reinicio de Streamlit, segunda sesión y actualización desde Sheets.
-
-La aplicación implementa bloqueos dentro del proceso, detección de estado desactualizado y escrituras atómicas por lote. Sheets no ofrece compare-and-swap para excluir una edición externa en la ventana entre lectura y escritura: usa un único despliegue escritor y coordina las ediciones manuales.
+La sincronización necesita una sesión de Streamlit abierta. Las pruebas locales y de API no equivalen a verificar la actualización de un despliegue concreto de Streamlit Community Cloud.

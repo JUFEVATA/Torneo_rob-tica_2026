@@ -3,14 +3,14 @@ import os
 import pandas as pd
 import streamlit as st
 
-from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos
+from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes
 from components.layout import bracket, champion, group_cards, hero, inject_style, metrics
 from core.models import ValidationError
 from services.runtime import admin_password, is_admin, login, read_state
 from services.serialization import encode
 from utils.helpers import csv_seguro
 
-st.set_page_config(page_title="Circuito · Torneos de robótica", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Torneos de robótica · STEM 2026", page_icon="🤖", layout="wide")
 inject_style()
 
 
@@ -23,9 +23,7 @@ def configured():
 
 mode = "demo" if os.environ.get("ROBOTICA_DEMO") == "1" or st.session_state.get("demo") else "sheets"
 if mode == "sheets" and not configured():
-    st.title("Circuito / Robótica")
-    st.subheader("Todo el torneo, en un solo lugar.")
-    st.write("Conecta Google Sheets para administrar competencias, distribuir grupos y seguir el camino hasta el campeonato.")
+    st.title("Torneos de robótica")
     st.info("La conexión todavía no está configurada. Sigue README.md y agrega google_sheet, gcp_service_account y admin en los Secrets de Streamlit.")
     if st.button("Explorar demostración", type="primary"):
         st.session_state.demo = True
@@ -34,7 +32,7 @@ if mode == "sheets" and not configured():
     st.stop()
 
 with st.sidebar:
-    st.markdown('<div class="brand">▦ circuito<span> /</span></div><div class="eyebrow" style="color:#8fafaf;margin-top:8px">ROBOTICS TOURNAMENTS</div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand">Torneos de robótica</div><div class="eyebrow" style="color:#FFFFFF;margin-top:8px">EQUIPO STEM 2026</div>', unsafe_allow_html=True)
     st.divider()
     if mode == "demo":
         st.caption("DEMOSTRACIÓN · DATOS LOCALES")
@@ -57,7 +55,10 @@ with st.sidebar:
     options = list(initial_state.competitions)
     selected = st.selectbox("Competencia activa", options, label_visibility="collapsed") if options else None
     st.caption("TORNEO")
-    page = st.radio("Navegación", ["Inicio", "Configuración", "Equipos", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados", "Administración"], label_visibility="collapsed")
+    pages = ["Inicio", "Participantes actuales", "Historial", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados"]
+    if is_admin():
+        pages += ["Configuración", "Equipos", "Administración"]
+    page = st.radio("Navegación", pages, label_visibility="collapsed")
     st.divider()
     if is_admin():
         st.caption("● MODO ADMINISTRADOR")
@@ -90,7 +91,7 @@ if "flash_error" in st.session_state:
     st.warning(st.session_state.pop("flash_error"))
 
 
-@st.fragment(run_every=None if is_admin() else "10s")
+@st.fragment(run_every="10s")
 def content():
     try:
         state, revision = read_state(mode)
@@ -105,18 +106,25 @@ def content():
     c = state.competitions.get(selected)
     editable = is_admin()
     if page == "Configuración" or not c:
-        configuracion.render(state, c, mode, revision, editable)
+        if editable:
+            configuracion.render(state, c, mode, revision, True)
+        else:
+            st.info("No hay competencias publicadas.")
         return
     st.markdown('<div class="eyebrow">CENTRO DE COMPETENCIA / ' + page.upper() + '</div>', unsafe_allow_html=True)
     if page == "Inicio":
-        st.title("El talento se encuentra en la pista.")
+        st.title("Torneos de robótica")
         hero(c)
         metrics(c)
-        st.caption(f"Fase actual: {c.config.fase_actual} · Participantes registrados: {sum(t.numero_participantes for t in c.teams)} / {c.config.numero_participantes}")
+        st.caption(f"Fase actual: {c.config.fase_actual}")
         champion(c)
         st.markdown('<div class="section-label">DISTRIBUCIÓN DEL TORNEO</div>', unsafe_allow_html=True)
         st.subheader("Grupos en competencia")
         group_cards(c)
+    elif page == "Participantes actuales":
+        participantes.actuales(c)
+    elif page == "Historial":
+        participantes.historial(c)
     elif page == "Equipos":
         equipos.render(c, mode, revision, editable)
     elif page == "Grupos":
@@ -127,7 +135,6 @@ def content():
         eliminatorias.render(c, mode, revision, editable)
     elif page == "Cuadro":
         st.header("Cuadro del torneo")
-        st.caption("Sigue cada enfrentamiento y el avance de sus ganadores. Desliza horizontalmente para ver todas las rondas.")
         bracket(c)
     elif page == "Resultados":
         st.header("Resultados")

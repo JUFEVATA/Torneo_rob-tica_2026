@@ -11,8 +11,10 @@ from google.oauth2.service_account import Credentials
 
 from core.models import ConflictError, ValidationError
 from core.tournament import validar_estado
+from core.sheet_flow import STAGE_TABS, STATES, stage_tables, apply_sheet_edits, normalized_rows
 from services.serialization import HEADERS, TABS, decode, encode, fingerprint
 
+MANAGED_TABS = list(TABS) + STAGE_TABS
 _LOCK = RLock()
 
 
@@ -45,7 +47,7 @@ class GoogleSheetsRepository:
                 return
             metadata = self.spreadsheet.fetch_sheet_metadata()
             self.properties = {s["properties"]["title"]: s["properties"] for s in metadata["sheets"]}
-            missing = [tab for tab in TABS if tab not in self.properties]
+            missing = [tab for tab in MANAGED_TABS if tab not in self.properties]
             if missing:
                 used = {s["sheetId"] for s in self.properties.values()}
                 requests, next_id = [], 1
@@ -59,7 +61,7 @@ class GoogleSheetsRepository:
                     self.properties[tab] = props
                     requests.append({"addSheet": {"properties": props}})
                     requests.append({"updateCells": {"start": {"sheetId": next_id},
-                                     "rows": [{"values": [cell(v) for v in HEADERS[tab]]}],
+                                     "rows": [{"values": [cell(v) for v in HEADERS.get(tab, [])]}],
                                      "fields": "userEnteredValue"}})
                 self.spreadsheet.batch_update({"requests": requests})
             self._initialized = True
@@ -67,13 +69,24 @@ class GoogleSheetsRepository:
     def _tables(self):
         self.initialize()
         response = self.spreadsheet.values_batch_get(
-            [f"'{tab}'" for tab in TABS],
+            [f"'{tab}'" for tab in MANAGED_TABS],
             params={"valueRenderOption": "UNFORMATTED_VALUE"})
-        return {tab: r.get("values", []) for tab, r in zip(TABS, response["valueRanges"])}
+        return {tab: r.get("values", []) for tab, r in zip(MANAGED_TABS, response["valueRanges"])}
 
     def read(self):
         with _LOCK:
             tables = self._tables()
+            state = decode(tables)
+            # Las hojas visibles son entradas editables; las internas conservan el
+            # historial. Una importación inválida no escribe ningún dato.
+            updated = apply_sheet_edits(state, tables)
+            projections = stage_tables(updated)
+            needs_sync = updated != state or any(
+                normalized_rows(tables.get(tab, [])) != normalized_rows(rows)
+                for tab, rows in projections.items())
+            if needs_sync:
+                self._commit(updated, tables)
+                tables = self._tables()
             return decode(tables), fingerprint(tables)
 
     def transact(self, revision, operation):
@@ -84,37 +97,71 @@ class GoogleSheetsRepository:
             state = deepcopy(decode(original))
             operation(state)
             validar_estado(state)
-            updated = encode(state)
-            # Relectura justo antes del commit: detecta ediciones mientras se calculaba.
-            if fingerprint(self._tables()) != revision:
-                raise ConflictError("Se detectó una edición concurrente. No se escribió ningún cambio.")
-            requests = []
-            for tab, rows in updated.items():
-                props = self.properties[tab]
-                sheet_id = props["sheetId"]
-                old = original.get(tab, [])
-                height = max(len(rows), len(old), 2)
-                width = max([len(r) for r in rows + old] or [1])
-                grid = props["gridProperties"]
-                if height > grid["rowCount"] or width > grid["columnCount"]:
-                    grid = {"rowCount": max(height, grid["rowCount"]),
-                            "columnCount": max(width, grid["columnCount"])}
-                    requests.append({"updateSheetProperties": {"properties": {"sheetId": sheet_id,
-                                     "gridProperties": grid}, "fields": "gridProperties(rowCount,columnCount)"}})
-                # El rango completo limpia también valores antiguos que ya no existen.
-                requests.append({"updateCells": {"range": {"sheetId": sheet_id, "startRowIndex": 0,
-                                 "endRowIndex": height, "startColumnIndex": 0, "endColumnIndex": width},
-                                 "rows": [{"values": [cell(v) for v in row]} for row in rows],
-                                 "fields": "userEnteredValue"}})
-                requests.append({"repeatCell": {"range": {"sheetId": sheet_id, "startRowIndex": 0,
-                                 "endRowIndex": 1, "endColumnIndex": width},
-                                 "cell": {"userEnteredFormat": {"backgroundColor": {"red": .07, "green": .20, "blue": .22},
-                                          "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}},
-                                 "fields": "userEnteredFormat"}})
-            # Un solo batchUpdate: configuración, grupos, equipos y resultados juntos.
-            self.spreadsheet.batch_update({"requests": requests})
-            self._initialized = False  # refresca dimensiones después de expandir
-            return self.read()
+            self._commit(state, original)
+            tables = self._tables()
+            return decode(tables), fingerprint(tables)
+
+    def _commit(self, state, original):
+        updated = encode(state)
+        updated.update(stage_tables(state))
+        if fingerprint(self._tables()) != fingerprint(original):
+            raise ConflictError("Se detectó una edición concurrente. No se escribió ningún cambio.")
+        requests = [{"updateSheetProperties": {"properties": {"sheetId": self.properties['Grupos']['sheetId'], "hidden": False, "index": 0}, "fields": "hidden,index"}}]
+        for tab, rows in updated.items():
+            props = self.properties[tab]
+            sheet_id = props["sheetId"]
+            visible = tab == 'Grupos' or tab in STAGE_TABS
+            hidden = not visible or (tab == '32 avos' and not any(c.config.cupos_clasificados == 64 for c in state.competitions.values()))
+            requests.append({"updateSheetProperties": {"properties": {"sheetId": sheet_id, "hidden": hidden}, "fields": "hidden"}})
+            old = original.get(tab, [])
+            height = max(len(rows), len(old), 2)
+            width = max([len(r) for r in rows + old] or [1])
+            grid = props["gridProperties"]
+            if height > grid["rowCount"] or width > grid["columnCount"]:
+                requests.append({"updateSheetProperties": {"properties": {"sheetId": sheet_id,
+                    "gridProperties": {"rowCount": max(height, grid["rowCount"]),
+                                       "columnCount": max(width, grid["columnCount"])}},
+                    "fields": "gridProperties(rowCount,columnCount)"}})
+            requests.append({"updateCells": {"range": {"sheetId": sheet_id, "startRowIndex": 0,
+                "endRowIndex": height, "startColumnIndex": 0, "endColumnIndex": width},
+                "rows": [{"values": [cell(v) for v in row]} for row in rows],
+                "fields": "userEnteredValue"}})
+            requests.append({"repeatCell": {"range": {"sheetId": sheet_id, "startRowIndex": 0,
+                "endRowIndex": 1, "endColumnIndex": width},
+                "cell": {"userEnteredFormat": {"backgroundColor": {"red": .051, "green": .588, "blue": .282},
+                    "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}}}},
+                "fields": "userEnteredFormat"}})
+            if tab == 'Grupos' or tab in STAGE_TABS:
+                status_col, id_col = (1, 2) if tab == 'Grupos' else (2, 4)
+                requests.append({"repeatCell": {"range": {"sheetId": sheet_id, "startRowIndex": 1, "endRowIndex": height},
+                    "cell": {"userEnteredFormat": {"backgroundColor": {"red": 1, "green": 1, "blue": 1},
+                        "textFormat": {"fontFamily": "Arial", "fontSize": 11, "foregroundColor": {"red": .09, "green": .23, "blue": .24}},
+                        "verticalAlignment": "MIDDLE", "wrapStrategy": "WRAP"}}, "fields": "userEnteredFormat"}})
+                requests.append({"updateDimensionProperties": {"range": {"sheetId": sheet_id, "dimension": "ROWS", "startIndex": 0, "endIndex": height}, "properties": {"pixelSize": 32}, "fields": "pixelSize"}})
+                for col, pixels in enumerate([430,180] if tab == 'Grupos' else [100,430,180]):
+                    requests.append({"updateDimensionProperties": {"range": {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": col, "endIndex": col+1}, "properties": {"pixelSize": pixels, "hiddenByUser": False}, "fields": "pixelSize,hiddenByUser"}})
+                for index, row in enumerate(rows[1:], start=1):
+                    if row and (str(row[0]).startswith(('Equipo ', 'Competencia:')) and len(row) == 1 or row[0] in ('Nombre del equipo', 'Partido')):
+                        requests.append({"repeatCell": {"range": {"sheetId": sheet_id, "startRowIndex": index, "endRowIndex": index+1, "endColumnIndex": status_col+1},
+                            "cell": {"userEnteredFormat": {"backgroundColor": {"red": .624, "green": .812, "blue": .404}, "textFormat": {"bold": True}}}, "fields": "userEnteredFormat(backgroundColor,textFormat.bold)"}})
+                # Limpia reglas antiguas al cambiar la cantidad de participantes.
+                requests.append({"setDataValidation": {"range": {"sheetId": sheet_id,
+                    "startColumnIndex": status_col, "endColumnIndex": status_col+1}}})
+                for index, row in enumerate(rows):
+                    if len(row) <= id_col or not row[id_col] or row[id_col] == 'id_equipo':
+                        continue
+                    requests.append({"setDataValidation": {"range": {"sheetId": sheet_id,
+                        "startRowIndex": index, "endRowIndex": index+1,
+                        "startColumnIndex": status_col, "endColumnIndex": status_col+1},
+                        "rule": {"condition": {"type": "ONE_OF_LIST", "values": [{"userEnteredValue": v} for v in STATES]},
+                                 "strict": True, "showCustomUi": True}}})
+                hidden_start = 2 if tab == 'Grupos' else 3
+                requests.append({"updateDimensionProperties": {"range": {"sheetId": sheet_id,
+                    "dimension": "COLUMNS", "startIndex": hidden_start,
+                    "endIndex": max(width, grid['columnCount'])},
+                    "properties": {"hiddenByUser": True}, "fields": "hiddenByUser"}})
+        self.spreadsheet.batch_update({"requests": requests})
+        self._initialized = False
 
 
 def leer_configuracion(repo, competencia):

@@ -6,7 +6,7 @@ import unittest
 
 from core.models import Config, ConflictError, State, ValidationError
 from core.tournament import crear_competencia, editar_equipo, iniciar_eliminatorias, reiniciar
-from services.google_sheets import GoogleSheetsRepository
+from services.google_sheets import GoogleSheetsRepository, MANAGED_TABS
 from services.repository import LocalRepository
 from services.serialization import HEADERS, TABS, decode, encode
 from tests.test_core import finish, tournament
@@ -38,7 +38,7 @@ class FakeSpreadsheet:
             if "updateSheetProperties" in request:
                 p = request["updateSheetProperties"]["properties"]
                 title = next(t for t, v in self.props.items() if v["sheetId"] == p["sheetId"])
-                self.props[title]["gridProperties"].update(p["gridProperties"])
+                self.props[title]["gridProperties"].update(p.get("gridProperties", {}))
             if "updateCells" in request:
                 update = request["updateCells"]
                 sid = update.get("range", update.get("start"))["sheetId"]
@@ -125,7 +125,7 @@ class PersistenceTests(unittest.TestCase):
         server = FakeSpreadsheet()
         repo = GoogleSheetsRepository(server)
         _, revision = repo.read()
-        self.assertEqual(set(server.tables), set(TABS))
+        self.assertEqual(set(server.tables), set(MANAGED_TABS))
         state, _ = tournament()
         before = len(server.writes)
         saved, _ = repo.transact(revision, lambda s: s.competitions.update(state.competitions))
@@ -139,7 +139,7 @@ class PersistenceTests(unittest.TestCase):
         _, revision = repo.read()
         state, _ = tournament()
         _, stale = repo.transact(revision, lambda s: s.competitions.update(state.competitions))
-        server.tables["Equipos"][1][1] = "Nombre manual"
+        server.tables["Grupos"][7][0] = "• Nombre manual"
         self.assertEqual(repo.read()[0].competitions["Sumo"].teams[0].nombre_equipo, "Nombre manual")
         with self.assertRaises(ConflictError):
             repo.transact(stale, lambda s: None)

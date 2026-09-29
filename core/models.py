@@ -27,6 +27,8 @@ class Config:
     equipos_por_grupo: str = ""
     campeon: str = ""
     metodo_grupos: str = "Orden original"
+    titulo: str = "Equipo STEM 2026"
+    fecha: str = ""
 
 
 @dataclass

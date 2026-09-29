@@ -59,7 +59,8 @@ class InterfaceTests(unittest.TestCase):
         self.load_tournament()
         at = self.app()
         forbidden = {"GENERAR GRUPOS", "GENERAR ELIMINATORIAS", "Guardar equipo", "Confirmar reinicio", "Crear competencia", "✓ CLASIFICA"}
-        for page in ["Inicio", "Configuración", "Equipos", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados", "Administración"]:
+        self.assertFalse({"Configuración", "Equipos", "Administración"}.intersection(widget(at.radio, "Navegación").options))
+        for page in ["Inicio", "Participantes actuales", "Historial", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados"]:
             self.page(at, page)
             self.assertFalse(forbidden.intersection(b.label for b in at.button))
 
@@ -132,5 +133,27 @@ class InterfaceTests(unittest.TestCase):
         at.run()
         self.assertEqual(self.repo.read()[0].competitions["Sumo"].teams[0].nombre_equipo, "Swampy")
         second = self.app()
-        self.page(second, "Equipos")
-        self.assertIn("Swampy", second.dataframe[0].value["nombre_equipo"].tolist())
+        self.page(second, "Participantes actuales")
+        self.assertIn("Swampy", second.dataframe[0].value["Equipo"].tolist())
+
+    def test_admin_imports_complete_roster_and_public_history(self):
+        at = self.app(True)
+        example = (APP.parent / "examples" / "sumo2026.txt").read_text()
+        widget(at.text_area, "Lista completa").set_value(example)
+        widget(at.button, "Importar grupos").click().run()
+        self.assertFalse(at.exception)
+        self.assertEqual(len(self.repo.read()[0].competitions["Sumo"].teams),85)
+        public = self.app()
+        self.page(public,"Participantes actuales")
+        self.assertEqual(len(public.dataframe[0].value),85)
+        self.page(public,"Historial")
+        self.assertEqual(len(public.dataframe[0].value),85)
+
+    def test_admin_group_dropdown_persists(self):
+        self.load_tournament()
+        at=self.app(True)
+        self.page(at,"Grupos")
+        team=self.repo.read()[0].competitions["Sumo"].teams[0]
+        widget(at.selectbox,"Estado de " + team.nombre_equipo).set_value("Pendiente").run()
+        self.assertFalse(at.exception)
+        self.assertEqual(self.repo.read()[0].competitions["Sumo"].teams[0].estado,"Pendiente")

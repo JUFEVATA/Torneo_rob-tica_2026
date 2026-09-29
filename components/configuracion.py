@@ -7,15 +7,22 @@ from services.runtime import execute
 
 
 def render(state, c, mode, revision, admin):
-    st.header("Configurar torneo")
-    st.caption("Define los equipos, los grupos y los cupos de cada competencia.")
     if not admin:
-        if c:
-            st.json({"competencia": c.config.competencia, "numero_equipos": c.config.numero_equipos,
-                     "numero_grupos": c.config.numero_grupos, "numero_participantes": c.config.numero_participantes,
-                     "cupos_clasificados": c.config.cupos_clasificados, "fase_actual": c.config.fase_actual})
-        st.info("El administrador puede crear y configurar competencias.")
         return
+    st.header("Configurar torneo")
+    with st.expander("Importar lista de grupos"):
+        with st.form("import_groups"):
+            text = st.text_area("Lista completa", height=250, placeholder="TORNEOS DE ROBÓTICA\nEquipo STEM 2026\nCompetencia: Sumo\nParticipantes: 85 | Grupos: 4\nEquipo 1\n• Nombre del equipo")
+            if st.form_submit_button("Importar grupos"):
+                from core.sheet_flow import parse_rosters, import_roster
+                from core.models import ValidationError
+                def operation(s):
+                    rosters = parse_rosters([[text]])
+                    if not rosters:
+                        raise ValidationError("Pega el listado con su encabezado Competencia:.")
+                    for roster in rosters:
+                        import_roster(s, roster)
+                execute(mode, revision, operation, "Lista importada con su distribución original.")
     with st.expander("＋ Crear una competencia", expanded=not state.competitions):
         with st.form("new_competition"):
             name = st.text_input("Nombre de la competencia", placeholder="Seguidor de línea")
@@ -36,8 +43,13 @@ def render(state, c, mode, revision, admin):
         st.caption("Para cambiar grupos o cupos: Administración → reiniciar eliminatorias si existen → reiniciar fase de grupos.")
         with st.form("participants_total"):
             value = st.number_input("Total esperado de participantes", min_value=0, value=cfg.numero_participantes)
+            cupos = st.selectbox("Cupos para eliminatorias", [2, 4, 8, 16, 32, 64], index=[2, 4, 8, 16, 32, 64].index(cfg.cupos_clasificados), disabled=bool(c.matches))
             if st.form_submit_button("Actualizar total de participantes"):
-                execute(mode, revision, lambda s: setattr(s.competitions[cfg.competencia].config, "numero_participantes", value))
+                def update(s):
+                    current = s.competitions[cfg.competencia]
+                    current.config.numero_participantes = value
+                    current.config.cupos_clasificados = cupos
+                execute(mode, revision, update)
         return
     with st.form("configure_groups"):
         a, b = st.columns(2)

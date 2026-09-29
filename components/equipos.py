@@ -9,6 +9,8 @@ from utils.helpers import csv_seguro, importar_csv
 
 
 def render(c, mode, revision, admin):
+    if not admin:
+        return
     st.header("Equipos")
     registered = sum(t.numero_participantes for t in c.teams)
     st.caption(f"{len(c.teams)} / {c.config.numero_equipos} equipos · Participantes registrados: {registered} / {c.config.numero_participantes} total esperado")
