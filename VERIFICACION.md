@@ -14,3 +14,5 @@
 - Lectura y escritura de rondas conservan sus datos al serializar y recuperar el torneo.
 
 La sincronización requiere una sesión abierta de Streamlit y consulta cada 10 segundos, con caché de 10 segundos. No funciona como un disparador autónomo de Google Sheets.
+
+Verificación del despliegue real: Streamlit carga sin error y muestra los 8 participantes de octavos. Google Sheets conserva 85 equipos, 4 bloques, 32 participantes en dieciseisavos y 8 en octavos; se comprobaron 85 desplegables de grupos y 8 de octavos. La competencia Seguidor de Linea se conserva. Antes de migrar se crearon copias ocultas con prefijo `_Antes libre`.

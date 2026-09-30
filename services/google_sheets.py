@@ -146,7 +146,7 @@ class GoogleSheetsRepository:
                     "gridProperties": {"rowCount": max(height, grid["rowCount"]),
                                        "columnCount": max(width, grid["columnCount"])}},
                     "fields": "gridProperties(rowCount,columnCount)"}})
-            if tab == "Grupos":
+            if tab == "Grupos" or tab in STAGE_TABS:
                 requests.append({"unmergeCells": {"range": {"sheetId": sheet_id}}})
             requests.append({"updateCells": {"range": {"sheetId": sheet_id, "startRowIndex": 0,
                 "endRowIndex": height, "startColumnIndex": 0, "endColumnIndex": width},
@@ -160,6 +160,9 @@ class GoogleSheetsRepository:
             if tab == 'Grupos':
                 requests.extend(board_format_requests(sheet_id, rows, height, max(width,grid['columnCount']), self.group_rule_count))
             elif tab in STAGE_TABS:
+                for index, row in enumerate(rows):
+                    if index == 0 or (len(row) == 1 and str(row[0]).startswith('Competencia:')):
+                        requests.append({"mergeCells": {"range": {"sheetId": sheet_id, "startRowIndex": index, "endRowIndex": index+1, "startColumnIndex": 0, "endColumnIndex": 3}, "mergeType": "MERGE_ALL"}})
                 status_col, id_col = (1, 2) if tab == 'Grupos' else (2, 4)
                 requests.append({"repeatCell": {"range": {"sheetId": sheet_id, "startRowIndex": 1, "endRowIndex": height},
                     "cell": {"userEnteredFormat": {"backgroundColor": {"red": 1, "green": 1, "blue": 1},
