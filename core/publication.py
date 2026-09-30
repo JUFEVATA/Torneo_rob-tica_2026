@@ -4,8 +4,8 @@ from core.models import ValidationError, new_id
 
 PUBLIC_PAGES = ["Inicio", "Fases", "Podio"]
 STAGES = ["Inscripción", "Grupos", *ORDEN_FASES, "Finalizado"]
-LABELS = {"Treintaidosavos": "32 avos", "Dieciseisavos": "16 avos", "Octavos": "8vos",
-          "Cuartos": "4tos", "Semifinal": "Semifinal", "Final": "Final", "Finalizado": "Finalizado",
+LABELS = {"Treintaidosavos": "32avos de final", "Dieciseisavos": "16avos de final", "Octavos": "Octavos de final",
+          "Cuartos": "Cuartos de final", "Semifinal": "Semifinal", "Final": "Final", "Finalizado": "Finalizado",
           "Grupos": "Grupos", "Inscripción": "Inscripción"}
 
 

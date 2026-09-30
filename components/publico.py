@@ -9,8 +9,10 @@ from core.tree import round_entries, tree_phases, tree_svg
 
 def home(c):
     phase = shown_stage(c)
-    st.markdown(f'<div class="hero"><span class="tag">{escape(c.config.titulo)}</span><h1>{escape(c.config.competencia)}</h1><p>Etapa actual · {escape(LABELS[phase])}</p></div>', unsafe_allow_html=True)
-    st.header(LABELS[phase])
+    is_round = phase not in ("Grupos", "Inscripción", "Finalizado")
+    st.markdown(f'<div class="hero{" stage-hero" if is_round else ""}"><span class="tag">{escape(c.config.titulo)}</span><h1>{escape(c.config.competencia)}</h1><p>Etapa actual · {escape(LABELS[phase])}</p></div>', unsafe_allow_html=True)
+    if not is_round:
+        st.header(LABELS[phase])
     if phase == "Grupos":
         group_cards(c)
     elif phase == "Inscripción":
@@ -19,20 +21,16 @@ def home(c):
         render_podium(c)
     else:
         entries = round_entries(c, phase)
-        st.caption(f"{len(entries)} equipos en esta etapa")
         if not entries:
             st.info("Los participantes aparecerán al clasificar desde la etapa anterior.")
         else:
-            cards = []
-            for offset in range(0, len(entries), 8):
-                batch = entries[offset:offset+8]
-                rows = []
-                for tid, status in batch:
-                    badge = "ok" if status == "Clasificado" else "out" if status == "Eliminado" else ""
-                    rows.append(f'<div class="team-row"><span>{escape(c.name(tid))}</span><span class="badge {badge}">{TO_PUBLIC[status]}</span></div>')
-                title = LABELS[phase] + (f" · {offset//8+1}" if len(entries) > 8 else "")
-                cards.append(f'<div class="group-card"><div class="group-head">{escape(title)}<span class="group-count">{len(batch):02d}</span></div>' + "".join(rows) + '</div>')
-            st.markdown('<div class="group-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
+            rows = []
+            for tid, status in entries:
+                badge = "ok" if status == "Clasificado" else "out" if status == "Eliminado" else ""
+                rows.append(f'<div class="team-row"><span>{escape(c.name(tid))}</span><span class="badge {badge}">{TO_PUBLIC[status]}</span></div>')
+            st.markdown(f'<div class="group-card phase-card"><div class="group-head">{escape(LABELS[phase])}'
+                        f'<span class="group-count">{len(entries):02d} equipos</span></div>'
+                        '<div class="phase-columns">' + "".join(rows) + '</div></div>', unsafe_allow_html=True)
 
 
 def render_tree(c):

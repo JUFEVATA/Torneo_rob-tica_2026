@@ -92,5 +92,5 @@ class PublicationTests(unittest.TestCase):
         svg = tree_svg(c, "Dieciseisavos")
         self.assertIn("&lt;script&gt;", svg)
         self.assertNotIn("<script>", svg)
-        self.assertIn("16 avos", svg); self.assertIn("CAMPEÓN", svg)
+        self.assertIn("16avos de final", svg); self.assertIn("CAMPEÓN", svg)
         self.assertEqual(c, before)

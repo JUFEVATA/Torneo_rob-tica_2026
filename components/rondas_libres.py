@@ -1,14 +1,15 @@
 import pandas as pd
 import streamlit as st
 from core.free_rounds import phases, classify
-from core.sheet_flow import TO_PUBLIC, TO_INTERNAL, STATES, PHASE_SHEETS
+from core.sheet_flow import TO_PUBLIC, TO_INTERNAL, STATES
+from core.publication import LABELS
 from services.runtime import execute
 
 
 def render(c, mode, revision, admin):
     st.header("Rondas de clasificación")
     available = phases(c)
-    phase = st.selectbox("Ronda", available, format_func=lambda f: PHASE_SHEETS[f],
+    phase = st.selectbox("Ronda", available, format_func=lambda f: LABELS[f],
                          index=available.index(c.config.fase_actual) if c.config.fase_actual in available else len(available)-1 if c.config.campeon else 0)
     entries = c.rounds.get(phase, {})
     st.caption(f"{len(entries)} equipos · {sum(s == 'Clasificado' for s in entries.values())} clasificados")

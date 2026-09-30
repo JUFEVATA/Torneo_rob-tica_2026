@@ -11,7 +11,8 @@
 - Una ronda con exceso de clasificados conserva la entrada manual y no bloquea el cambio de grupos.
 - Escrituras incorporan selecciones manuales recientes; se detectan conflictos de revisión.
 - Acceso discreto al pulsar Equipo STEM 2026; formulario oculto al abrir la página y tras cerrar sesión.
-- Inicio muestra todas las rondas en tarjetas y ninguna vista pública ofrece tablas con descarga CSV.
+- Inicio presenta cada ronda en un único panel con columnas adaptables y nombres completos de las fases; ninguna vista pública ofrece tablas con descarga CSV.
+- Menú lateral sin la leyenda TORNEO; competencia más destacada, radio seleccionado con punto interior y botón Entrar azul con texto blanco.
 - Hoja Podio visible, con tres filas por competencia, desplegables de equipos y sincronización bidireccional. Una selección inválida se conserva para corregirla y no bloquea las otras hojas.
 - Menú público limitado a Inicio, Fases y Podio, sin selector de competencia.
 - Publicación compartida con etapa automática o manual; el cambio se refleja al abrir otra sesión.

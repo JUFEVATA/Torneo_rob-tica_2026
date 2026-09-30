@@ -47,7 +47,7 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 
 ## Modo público y administrador
 
-El público ve únicamente **Inicio**, **Fases** y **Podio**. No puede elegir la competencia. **Inicio** muestra la etapa publicada y sus participantes; todas las etapas muestran tarjetas con nombres y estados, sin descargas CSV públicas. **Fases** presenta un árbol simétrico con el campeón al centro, rondas pendientes y estados de los equipos. Puedes ampliar los nombres o ver el árbol desde otra ronda; en clasificación libre sus líneas conectan etapas y no definen rivales.
+El público ve únicamente **Inicio**, **Fases** y **Podio**. No puede elegir la competencia. **Inicio** muestra la etapa publicada y sus participantes; Grupos conserva sus tarjetas y cada ronda posterior reúne todos los participantes en un único panel de columnas adaptables, sin dividir la ronda en bloques numerados ni ofrecer descargas CSV públicas. Los nombres visibles son 16avos de final, Octavos de final, Cuartos de final, Semifinal y Final. **Fases** presenta un árbol simétrico con el campeón al centro, rondas pendientes y estados de los equipos. Puedes ampliar los nombres o ver el árbol desde otra ronda; en clasificación libre sus líneas conectan etapas y no definen rivales.
 
 Para iniciar sesión, pulsa discretamente **EQUIPO STEM 2026** bajo el título de la barra lateral e introduce la contraseña. El administrador dispone de **Publicación**, **Configuración**, **Equipos**, **Grupos**, **Eliminatorias**, **Historial** y **Administración**, además de las tres vistas públicas. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
 

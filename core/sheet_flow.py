@@ -186,7 +186,8 @@ def group_rows(state: State) -> list[list]:
 
 
 def phase_rows(state: State, phase: str) -> list[list]:
-    rows = [['TORNEOS DE ROBÓTICA · ' + PHASE_SHEETS[phase]],
+    from core.publication import LABELS
+    rows = [['TORNEOS DE ROBÓTICA · ' + LABELS[phase]],
             ['N.º', 'Equipo', 'Estado', 'id_partido', 'id_equipo']]
     for c in state.competitions.values():
         if c.config.sistema == 'Libre':

@@ -1,5 +1,6 @@
 """Punto de entrada: streamlit run app.py"""
 import os
+from html import escape
 import streamlit as st
 
 from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes, rondas_libres, publico, publicacion
@@ -41,7 +42,7 @@ with st.sidebar:
                 st.caption("Configura admin.password en Secrets para habilitar el acceso.")
             with st.form("login", clear_on_submit=True):
                 password = st.text_input("Contraseña", type="password")
-                if st.form_submit_button("Entrar"):
+                if st.form_submit_button("Entrar", type="primary"):
                     error = login(password)
                     if error:
                         st.error(error)
@@ -76,8 +77,7 @@ with st.sidebar:
     else:
         selected = public_name(initial_state)
         if selected:
-            st.caption(selected)
-    st.caption("TORNEO")
+            st.markdown(f'<div class="competition-name">{escape(selected)}</div>', unsafe_allow_html=True)
     pages = PUBLIC_PAGES + (["Publicación", "Configuración", "Equipos", "Grupos", "Eliminatorias", "Historial", "Administración"] if editable_at_start else [])
     page = st.radio("Navegación", pages, label_visibility="collapsed", key="admin_navigation" if editable_at_start else "public_navigation")
     st.divider()

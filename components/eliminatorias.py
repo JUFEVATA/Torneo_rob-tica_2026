@@ -2,6 +2,7 @@ import streamlit as st
 
 from components.layout import champion
 from core.eliminatorias import ORDEN_FASES, actualizar_ganador, partidos_fase
+from core.publication import LABELS
 from services.runtime import execute
 
 
@@ -13,7 +14,7 @@ def render(c, mode, revision, admin):
     champion(c)
     phases = [f for f in ORDEN_FASES if partidos_fase(c, f)]
     default = c.config.fase_actual if c.config.fase_actual in phases else phases[-1]
-    phase = st.selectbox("Ronda", phases, index=phases.index(default))
+    phase = st.selectbox("Ronda", phases, index=phases.index(default), format_func=lambda f: LABELS[f])
     matches = partidos_fase(c, phase)
     st.caption(f"{sum(bool(m.ganador) for m in matches)} / {len(matches)} partidos finalizados")
     earlier_pending = any(not m.ganador for m in c.matches if ORDEN_FASES.index(m.fase) < ORDEN_FASES.index(phase))

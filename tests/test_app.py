@@ -93,7 +93,7 @@ class InterfaceTests(unittest.TestCase):
         cards=" ".join(m.value for m in public.markdown)
         self.assertIn("group-card", cards)
         for t in c.teams[:2]: self.assertIn(t.nombre_equipo, cards)
-        self.assertTrue(any(h.value=="16 avos" for h in public.header))
+        self.assertIn("16avos de final", cards)
         self.assertFalse(any("Equipo 1" in m.value for m in public.markdown))
 
     def test_save_three_places_visible_to_public(self):
