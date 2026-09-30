@@ -21,7 +21,7 @@ Cambia la cantidad directamente. **F5 = 4** genera cuatro bloques; **F5 = 8** ge
 
 Al reducir el total se mantienen los primeros nombres de la lista y los demás pasan a **Reserva**, conservando sus identificadores. Al aumentarlo se reincorporan primero esos nombres; si hacen falta más, se añaden **Equipo nuevo 1…** para que los renombres en las tarjetas. La hoja interna Reserva está oculta y el administrador puede consultar esos nombres en Equipos. No se borran nombres al reducir la cantidad.
 
-La cantidad de grupos puede cambiar incluso con clasificaciones: los nombres, estados y rondas se conservan. La cantidad de equipos y los cupos solo pueden cambiar antes de marcar resultados. Al reducir el total por debajo de los cupos, estos se ajustan a la mayor potencia de dos que cabe. La nueva distribución se guarda; refrescar no vuelve a sortear. El administrador dispone de estos controles en Configuración.
+La cantidad de grupos puede cambiar incluso con clasificaciones: los nombres, estados y rondas se conservan. La cantidad de equipos y los cupos solo pueden cambiar antes de marcar resultados. Al reducir el total por debajo de los cupos, estos se ajustan a la mayor potencia de dos que cabe. La nueva distribución se guarda; refrescar no vuelve a sortear. Para iniciar sesión, pulsa discretamente **EQUIPO STEM 2026** bajo el título de la barra lateral e introduce la contraseña. El administrador dispone de estos controles en Configuración.
 
 Los desplegables ofrecen cantidades habituales; también puedes escribir un entero hasta 4096. Los cupos admitidos son 2, 4, 8, 16, 32 o 64. No pueden superar los equipos inscritos.
 
@@ -47,9 +47,9 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 
 ## Modo público y administrador
 
-El público ve únicamente **Inicio**, **Ruta al campeonato** y **Podio**. No puede elegir la competencia. **Inicio** muestra la etapa publicada y sus participantes; cuando la etapa es Grupos, muestra sus tarjetas. **Ruta al campeonato** presenta un árbol simétrico con el campeón al centro, rondas pendientes y estados de los equipos. Puedes ampliar los nombres o ver el árbol desde otra ronda; en clasificación libre sus líneas conectan etapas y no definen rivales.
+El público ve únicamente **Inicio**, **Fases** y **Podio**. No puede elegir la competencia. **Inicio** muestra la etapa publicada y sus participantes; todas las etapas muestran tarjetas con nombres y estados, sin descargas CSV públicas. **Fases** presenta un árbol simétrico con el campeón al centro, rondas pendientes y estados de los equipos. Puedes ampliar los nombres o ver el árbol desde otra ronda; en clasificación libre sus líneas conectan etapas y no definen rivales.
 
-El administrador dispone de **Publicación**, **Configuración**, **Equipos**, **Grupos**, **Eliminatorias**, **Historial** y **Administración**, además de las tres vistas públicas. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
+Para iniciar sesión, pulsa discretamente **EQUIPO STEM 2026** bajo el título de la barra lateral e introduce la contraseña. El administrador dispone de **Publicación**, **Configuración**, **Equipos**, **Grupos**, **Eliminatorias**, **Historial** y **Administración**, además de las tres vistas públicas. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
 
 ### Elegir qué ve el público
 
@@ -60,7 +60,7 @@ El administrador dispone de **Publicación**, **Configuración**, **Equipos**, *
 
 ### Primer, segundo y tercer puesto
 
-Como administrador, abre **Podio** y elige los tres equipos en **Editar puestos → Guardar podio**. Los visitantes ven únicamente el resultado. Un equipo no puede ocupar dos puestos. Los puestos pueden quedar **Por definir**. Si no se asigna manualmente el primero, se muestra el campeón de la final cuando existe; en torneos por parejas, también se obtiene automáticamente el segundo. Los puestos manuales se guardan por identidad del equipo y no cambian su clasificación deportiva.
+Como administrador, abre **Podio** y elige los tres equipos en **Editar puestos → Guardar podio**. También puedes usar la hoja visible **Podio** de Google Sheets: incluye tres filas por competencia y un desplegable en **Equipo** para asignar cada puesto. Los cambios se sincronizan en ambos sentidos, sin modificar la clasificación de las rondas. Conserva los encabezados y las filas; para quitar una asignación, selecciona **Por definir**. Los visitantes ven únicamente el resultado. Un equipo no puede ocupar dos puestos. Los puestos pueden quedar **Por definir**. Si no se asigna manualmente el primero, se muestra el campeón de la final cuando existe; en torneos por parejas, también se obtiene automáticamente el segundo. Los puestos manuales se guardan por identidad del equipo y no cambian su clasificación deportiva.
 
 ### Eliminar una competencia creada por error
 

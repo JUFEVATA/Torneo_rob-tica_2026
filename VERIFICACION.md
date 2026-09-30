@@ -1,6 +1,6 @@
-# Verificación · 29 septiembre 2026
+# Verificación · 30 septiembre 2026
 
-75 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+80 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -10,7 +10,10 @@
 - Corregir una clasificación retira solo al equipo afectado de las rondas posteriores.
 - Una ronda con exceso de clasificados conserva la entrada manual y no bloquea el cambio de grupos.
 - Escrituras incorporan selecciones manuales recientes; se detectan conflictos de revisión.
-- Menú público limitado a Inicio, Ruta al campeonato y Podio, sin selector de competencia.
+- Acceso discreto al pulsar Equipo STEM 2026; formulario oculto al abrir la página y tras cerrar sesión.
+- Inicio muestra todas las rondas en tarjetas y ninguna vista pública ofrece tablas con descarga CSV.
+- Hoja Podio visible, con tres filas por competencia, desplegables de equipos y sincronización bidireccional. Una selección inválida se conserva para corregirla y no bloquea las otras hojas.
+- Menú público limitado a Inicio, Fases y Podio, sin selector de competencia.
 - Publicación compartida con etapa automática o manual; el cambio se refleja al abrir otra sesión.
 - Podio manual de tres posiciones con validación de equipos únicos y persistencia después de sincronizar Sheets.
 - Eliminar y restaurar la última competencia conserva equipos, rondas, podio y configuración.

@@ -1,9 +1,32 @@
 """Formato nativo de tarjetas para el tablero de Google Sheets."""
 from core.group_board import CARDS_PER_ROW, STRIDE, sections, value
+from core.podium_sheet import UNDEFINED
 
 
 def color(hexcode):
     return dict(zip(('red','green','blue'),(int(hexcode[i:i+2],16)/255 for i in (1,3,5))))
+
+
+def podium_format_requests(sid, rows, height, width, state):
+    """Tres puestos por competencia, con selector nativo de equipos inscritos."""
+    req = [
+        {'updateSheetProperties': {'properties': {'sheetId': sid, 'gridProperties': {'hideGridlines': True, 'frozenRowCount': 1}}, 'fields': 'gridProperties(hideGridlines,frozenRowCount)'}},
+        {'repeatCell': {'range': {'sheetId': sid, 'startRowIndex': 1, 'endRowIndex': height}, 'cell': {'userEnteredFormat': {'backgroundColor': color('#FFFFFF'), 'textFormat': {'fontFamily': 'Arial', 'fontSize': 11, 'foregroundColor': color('#173B3D')}, 'verticalAlignment': 'MIDDLE', 'wrapStrategy': 'WRAP'}}, 'fields': 'userEnteredFormat'}},
+        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 0, 'endIndex': height}, 'properties': {'pixelSize': 42}, 'fields': 'pixelSize'}},
+        {'setDataValidation': {'range': {'sheetId': sid, 'startColumnIndex': 2, 'endColumnIndex': 3}}},
+        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'COLUMNS', 'startIndex': 3, 'endIndex': width}, 'properties': {'hiddenByUser': True}, 'fields': 'hiddenByUser'}},
+    ]
+    for col, pixels in enumerate((240, 120, 360)):
+        req.append({'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'COLUMNS', 'startIndex': col, 'endIndex': col+1}, 'properties': {'pixelSize': pixels, 'hiddenByUser': False}, 'fields': 'pixelSize,hiddenByUser'}})
+    palette = {1: '#E6F4DE', 2: '#F3F7F6', 3: '#E0F3F0'}
+    for index, row in enumerate(rows[1:], start=1):
+        c = state.competitions.get(row[0]) if len(row) > 2 else None
+        if not c or row[1] not in palette:
+            continue
+        req.append({'repeatCell': {'range': {'sheetId': sid, 'startRowIndex': index, 'endRowIndex': index+1, 'endColumnIndex': 3}, 'cell': {'userEnteredFormat': {'backgroundColor': color(palette[row[1]])}}, 'fields': 'userEnteredFormat.backgroundColor'}})
+        req.append({'repeatCell': {'range': {'sheetId': sid, 'startRowIndex': index, 'endRowIndex': index+1, 'startColumnIndex': 1, 'endColumnIndex': 2}, 'cell': {'userEnteredFormat': {'numberFormat': {'type': 'NUMBER', 'pattern': '0".º puesto"'}}}, 'fields': 'userEnteredFormat.numberFormat'}})
+        req.append({'setDataValidation': {'range': {'sheetId': sid, 'startRowIndex': index, 'endRowIndex': index+1, 'startColumnIndex': 2, 'endColumnIndex': 3}, 'rule': {'condition': {'type': 'ONE_OF_LIST', 'values': [{'userEnteredValue': v} for v in [UNDEFINED, *[t.nombre_equipo for t in c.teams]]]}, 'strict': True, 'showCustomUi': True}}})
+    return req
 
 
 def board_format_requests(sid,rows,height,width,rule_count=0):

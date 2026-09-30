@@ -48,7 +48,7 @@ def login(password):
 
 @st.cache_resource
 def get_repository(mode):
-    # Schema v4: publicación compartida, podio y papelera de competencias.
+    # Schema v5: hoja Podio visible con selección de equipos sincronizada.
     if mode == "demo":
         from services.demo import seed
         repo = LocalRepository(Path(__file__).resolve().parents[1] / ".demo" / "torneo.json")

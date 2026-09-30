@@ -1,6 +1,5 @@
 from html import escape
 from base64 import b64encode
-import pandas as pd
 import streamlit as st
 from components.layout import group_cards, bracket
 from core.publication import shown_stage, LABELS, podium
@@ -24,11 +23,20 @@ def home(c):
         if not entries:
             st.info("Los participantes aparecerán al clasificar desde la etapa anterior.")
         else:
-            st.dataframe(pd.DataFrame([{"Equipo": c.name(tid), "Estado": TO_PUBLIC[status]} for tid, status in entries]), hide_index=True, width="stretch")
+            cards = []
+            for offset in range(0, len(entries), 8):
+                batch = entries[offset:offset+8]
+                rows = []
+                for tid, status in batch:
+                    badge = "ok" if status == "Clasificado" else "out" if status == "Eliminado" else ""
+                    rows.append(f'<div class="team-row"><span>{escape(c.name(tid))}</span><span class="badge {badge}">{TO_PUBLIC[status]}</span></div>')
+                title = LABELS[phase] + (f" · {offset//8+1}" if len(entries) > 8 else "")
+                cards.append(f'<div class="group-card"><div class="group-head">{escape(title)}<span class="group-count">{len(batch):02d}</span></div>' + "".join(rows) + '</div>')
+            st.markdown('<div class="group-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
 
 
 def render_tree(c):
-    st.header("Ruta al campeonato")
+    st.header("Fases")
     phases = tree_phases(c)
     stage = shown_stage(c)
     context_index = max(0, len(phases)-3)

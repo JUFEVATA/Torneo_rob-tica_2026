@@ -217,7 +217,8 @@ def phase_rows(state: State, phase: str) -> list[list]:
 
 
 def stage_tables(state: State) -> dict:
-    return {'Grupos': board_rows(state), **{tab: phase_rows(state, phase) for phase, tab in PHASE_SHEETS.items()}}
+    from core.podium_sheet import podium_rows
+    return {'Grupos': board_rows(state), 'Podio': podium_rows(state), **{tab: phase_rows(state, phase) for phase, tab in PHASE_SHEETS.items()}}
 
 
 def apply_sheet_edits(state: State, tables: dict, strict=True) -> State:
@@ -262,6 +263,18 @@ def apply_sheet_edits(state: State, tables: dict, strict=True) -> State:
             issues[tab] = str(error)
             updated.sync_issues = issues
             updated.sync_error = ' | '.join(issues.values())
+        else:
+            updated = candidate
+    if tables.get('Podio'):
+        from core.podium_sheet import apply_podium_edits
+        candidate = deepcopy(updated)
+        try:
+            apply_podium_edits(candidate, state, tables['Podio'])
+        except ValidationError as error:
+            if strict:
+                raise
+            updated.sync_issues = {**getattr(updated, 'sync_issues', {}), 'Podio': str(error)}
+            updated.sync_error = ' | '.join(updated.sync_issues.values())
         else:
             updated = candidate
     validar_estado(updated)

@@ -30,7 +30,24 @@ if mode == "sheets" and not configured():
     st.stop()
 
 with st.sidebar:
-    st.markdown('<div class="brand">Torneos de robótica</div><div class="eyebrow" style="color:#FFFFFF;margin-top:8px">EQUIPO STEM 2026</div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand">Torneos de robótica</div>', unsafe_allow_html=True)
+    if is_admin():
+        st.markdown('<div class="eyebrow" style="color:#FFFFFF;margin-top:8px">EQUIPO STEM 2026</div>', unsafe_allow_html=True)
+    else:
+        if st.button("EQUIPO STEM 2026", key="admin_access", type="tertiary"):
+            st.session_state.admin_login_open = not st.session_state.get("admin_login_open", False)
+        if st.session_state.get("admin_login_open"):
+            if not admin_password():
+                st.caption("Configura admin.password en Secrets para habilitar el acceso.")
+            with st.form("login", clear_on_submit=True):
+                password = st.text_input("Contraseña", type="password")
+                if st.form_submit_button("Entrar"):
+                    error = login(password)
+                    if error:
+                        st.error(error)
+                    else:
+                        st.session_state.admin_login_open = False
+                        st.rerun()
     st.divider()
     if mode == "demo":
         st.caption("DEMOSTRACIÓN · DATOS LOCALES")
@@ -68,24 +85,11 @@ with st.sidebar:
         st.caption("● MODO ADMINISTRADOR")
         if st.button("Cerrar sesión"):
             st.session_state.pop("admin_signature", None)
+            st.session_state.admin_login_open = False
             st.rerun()
-    else:
-        st.caption("◉ MODO PÚBLICO · SOLO LECTURA")
-        with st.expander("Acceso administrador"):
-            if not admin_password():
-                st.caption("Configura admin.password en Secrets para habilitar el acceso.")
-            with st.form("login", clear_on_submit=True):
-                password = st.text_input("Contraseña", type="password")
-                if st.form_submit_button("Entrar"):
-                    error = login(password)
-                    if error:
-                        st.error(error)
-                    else:
-                        st.rerun()
     if st.button("↻ Actualizar datos"):
         read_state.clear()
         st.rerun()
-    st.caption("Actualización pública cada 10 segundos.")
 
 if mode == "demo":
     st.info("Estás explorando una demostración. Los cambios se guardan localmente; conecta Google Sheets para el torneo real.")
@@ -125,7 +129,7 @@ def content():
     st.markdown('<div class="eyebrow">CENTRO DE COMPETENCIA / ' + page.upper() + '</div>', unsafe_allow_html=True)
     if page == "Inicio":
         publico.home(c)
-    elif page == "Ruta al campeonato":
+    elif page == "Fases":
         publico.render_tree(c)
     elif page == "Podio":
         publico.render_podium(c)

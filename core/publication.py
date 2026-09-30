@@ -2,7 +2,7 @@
 from core.eliminatorias import ORDEN_FASES, partidos_fase
 from core.models import ValidationError, new_id
 
-PUBLIC_PAGES = ["Inicio", "Ruta al campeonato", "Podio"]
+PUBLIC_PAGES = ["Inicio", "Fases", "Podio"]
 STAGES = ["Inscripción", "Grupos", *ORDEN_FASES, "Finalizado"]
 LABELS = {"Treintaidosavos": "32 avos", "Dieciseisavos": "16 avos", "Octavos": "8vos",
           "Cuartos": "4tos", "Semifinal": "Semifinal", "Final": "Final", "Finalizado": "Finalizado",

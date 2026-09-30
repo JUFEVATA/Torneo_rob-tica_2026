@@ -10,7 +10,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from core.group_board import preserve_drafts
-from services.sheet_style import board_format_requests
+from services.sheet_style import board_format_requests, podium_format_requests
 from core.models import ConflictError, ValidationError
 from core.tournament import validar_estado
 from core.sheet_flow import STAGE_TABS, STATES, stage_tables, apply_sheet_edits, normalized_rows
@@ -60,7 +60,7 @@ class GoogleSheetsRepository:
                         next_id += 1
                     used.add(next_id)
                     props = {"sheetId": next_id, "title": tab,
-                             "hidden": tab not in ["Grupos", *STAGE_TABS] or tab == "32 avos",
+                             "hidden": tab not in ["Grupos", "Podio", *STAGE_TABS] or tab == "32 avos",
                              "gridProperties": {"rowCount": 100, "columnCount": 20,
                                                 "frozenRowCount": 2 if tab == "Grupos" else 1}}
                     self.properties[tab] = props
@@ -132,7 +132,7 @@ class GoogleSheetsRepository:
         for tab, rows in updated.items():
             props = self.properties[tab]
             sheet_id = props["sheetId"]
-            visible = tab == 'Grupos' or tab in STAGE_TABS
+            visible = tab in ('Grupos', 'Podio') or tab in STAGE_TABS
             hidden = not visible or (tab == '32 avos' and not any(c.config.cupos_clasificados == 64 for c in state.competitions.values()))
             requests.append({"updateSheetProperties": {"properties": {"sheetId": sheet_id, "hidden": hidden}, "fields": "hidden"}})
             old = original.get(tab, [])
@@ -159,6 +159,8 @@ class GoogleSheetsRepository:
                 "fields": "userEnteredFormat"}})
             if tab == 'Grupos':
                 requests.extend(board_format_requests(sheet_id, rows, height, max(width,grid['columnCount']), self.group_rule_count))
+            elif tab == 'Podio':
+                requests.extend(podium_format_requests(sheet_id, rows, height, max(width, grid['columnCount']), state))
             elif tab in STAGE_TABS:
                 for index, row in enumerate(rows):
                     if index == 0 or (len(row) == 1 and str(row[0]).startswith('Competencia:')):

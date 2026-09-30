@@ -41,6 +41,7 @@ class InterfaceTests(unittest.TestCase):
         at.secrets["admin"] = {"password": "solo-prueba-temporal"}
         at.run()
         if admin:
+            widget(at.button, "EQUIPO STEM 2026").click().run()
             widget(at.text_input, "Contraseña").set_value("solo-prueba-temporal")
             widget(at.button, "Entrar").click().run()
         self.assertFalse(at.exception)
@@ -60,16 +61,21 @@ class InterfaceTests(unittest.TestCase):
         at = self.app()
         forbidden = {"GENERAR GRUPOS", "GENERAR ELIMINATORIAS", "Guardar equipo", "Confirmar reinicio", "Crear competencia", "✓ CLASIFICA"}
         self.assertFalse({"Configuración", "Equipos", "Administración"}.intersection(widget(at.radio, "Navegación").options))
-        self.assertEqual(widget(at.radio, "Navegación").options, ["Inicio", "Ruta al campeonato", "Podio"])
+        self.assertEqual(widget(at.radio, "Navegación").options, ["Inicio", "Fases", "Podio"])
         self.assertFalse(any(w.label == "Competencia activa" for w in at.selectbox))
-        for page in ["Inicio", "Ruta al campeonato", "Podio"]:
+        for page in ["Inicio", "Fases", "Podio"]:
             self.page(at, page)
             self.assertFalse(forbidden.intersection(b.label for b in at.button))
+            self.assertFalse(at.dataframe)
+            self.assertFalse(at.get("download_button"))
+            self.assertFalse(at.text_input)
+            self.assertFalse(at.expander)
+            self.assertFalse(any("MODO PÚBLICO" in w.value or "Actualización pública" in w.value for w in at.caption))
 
     def test_admin_all_pages(self):
         self.load_tournament()
         at = self.app(True)
-        for page in ["Inicio", "Ruta al campeonato", "Podio", "Publicación", "Configuración", "Equipos", "Grupos", "Eliminatorias", "Historial", "Administración"]:
+        for page in ["Inicio", "Fases", "Podio", "Publicación", "Configuración", "Equipos", "Grupos", "Eliminatorias", "Historial", "Administración"]:
             self.page(at, page)
 
     def test_publish_stage_and_competition_shared_with_new_public_session(self):
@@ -83,7 +89,10 @@ class InterfaceTests(unittest.TestCase):
         widget(at.button,"Publicar competencia y etapa").click().run()
         self.assertFalse(at.exception)
         public=self.app()
-        self.assertEqual(len(public.dataframe[0].value),2)
+        self.assertFalse(public.dataframe)
+        cards=" ".join(m.value for m in public.markdown)
+        self.assertIn("group-card", cards)
+        for t in c.teams[:2]: self.assertIn(t.nombre_equipo, cards)
         self.assertTrue(any(h.value=="16 avos" for h in public.header))
         self.assertFalse(any("Equipo 1" in m.value for m in public.markdown))
 
@@ -111,7 +120,8 @@ class InterfaceTests(unittest.TestCase):
     def test_logout_from_admin_page_returns_to_public_home(self):
         self.load_tournament();at=self.app(True);self.page(at,"Configuración")
         widget(at.button,"Cerrar sesión").click().run();self.assertFalse(at.exception)
-        self.assertEqual(widget(at.radio,"Navegación").options,["Inicio","Ruta al campeonato","Podio"])
+        self.assertEqual(widget(at.radio,"Navegación").options,["Inicio","Fases","Podio"])
+        self.assertFalse(at.text_input)
         self.assertFalse(any(w.label=="Competencia activa" for w in at.selectbox))
 
     def test_free_public_and_admin_pages_and_save(self):
@@ -121,7 +131,7 @@ class InterfaceTests(unittest.TestCase):
         for team in c.teams[:32]: classify(c,'Grupos',team.id_equipo,'Clasificado')
         _,rev=self.repo.read();self.repo.transact(rev,lambda s:s.competitions.update(state.competitions))
         at=self.app()
-        for name in ['Inicio','Ruta al campeonato','Podio']:
+        for name in ['Inicio','Fases','Podio']:
             self.page(at,name)
             self.assertFalse(any(b.label=='Guardar clasificación' for b in at.button))
         at=self.app(True)
@@ -136,6 +146,8 @@ class InterfaceTests(unittest.TestCase):
     def test_wrong_password_cannot_edit(self):
         self.load_tournament()
         at = self.app()
+        self.assertFalse(at.text_input)
+        widget(at.button, "EQUIPO STEM 2026").click().run()
         widget(at.text_input, "Contraseña").set_value("incorrecta")
         widget(at.button, "Entrar").click().run()
         self.assertTrue(at.error)
@@ -207,7 +219,7 @@ class InterfaceTests(unittest.TestCase):
         self.assertFalse(at.exception)
         self.assertEqual(len(self.repo.read()[0].competitions["Sumo"].teams),85)
         public = self.app()
-        self.assertEqual(widget(public.radio, "Navegación").options, ["Inicio", "Ruta al campeonato", "Podio"])
+        self.assertEqual(widget(public.radio, "Navegación").options, ["Inicio", "Fases", "Podio"])
         self.page(at,"Historial")
         self.assertEqual(len(at.dataframe[0].value),85)
 

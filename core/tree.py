@@ -65,7 +65,7 @@ def tree_svg(c, start):
     shapes.append(f'<g><title>{escape(champion_name)}</title><rect x="{center-90}" y="{middle-72}" width="180" height="144" rx="18" class="trophy"/>'
                   f'<text x="{center}" y="{middle-24}" text-anchor="middle" font-size="38">🏆</text><text x="{center}" y="{middle+10}" text-anchor="middle" class="stage">CAMPEÓN</text>'
                   f'<text x="{center}" y="{middle+38}" text-anchor="middle" class="name">{escape(short)}</text></g>')
-    return f'<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ruta al campeonato de {escape(c.config.competencia, quote=True)}" viewBox="0 0 {width} {height}">' + '''<style>
+    return f'<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fases de {escape(c.config.competencia, quote=True)}" viewBox="0 0 {width} {height}">' + '''<style>
     text{font-family:Arial,sans-serif;fill:#173B3D}.stage{font-size:16px;font-weight:700;fill:#0D9648}.name{font-size:14px}.status{font-size:11px;fill:#647c81}
     rect{stroke-width:1.5}.entry{fill:white;stroke:#00A99D}.winner{fill:#e2f6ea;stroke:#0D9648}.out{fill:#eef1f0;stroke:#ccd6d3}.waiting{fill:#f9fbfa;stroke:#ccd6d3;stroke-dasharray:4 3}.trophy{fill:#e2f6ea;stroke:#0D9648}
     path{stroke:#9FCF67;stroke-width:2;fill:none}

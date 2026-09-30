@@ -7,8 +7,10 @@ from core.eliminatorias import ORDEN_FASES, partidos_fase
 from core.grupos import nombre_columna
 from core.models import Competition, Config, Match, State, Team, ValidationError
 from core.tournament import validar_estado
+from core.podium_sheet import PODIUM_HEADER
 
 HEADERS = {
+    "Podio": list(PODIUM_HEADER),
     "Publicacion": ["competencia"],
     "Papelera": ["id_archivo", "parte", "datos"],
     "Configuracion": ["competencia", "campo", "valor"],

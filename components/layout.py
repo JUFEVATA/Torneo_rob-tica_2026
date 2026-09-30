@@ -14,6 +14,8 @@ h1,h2,h3 {font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.04em
 [data-testid="stSidebar"] input {color:#173B3D!important;}
 [data-testid="stSidebar"] [data-baseweb="select"] * {color:#173B3D;}
 [data-testid="stSidebar"] .stButton button {background:#0087C3;color:white;border:1px solid #FFFFFF;}
+[data-testid="stSidebar"] .st-key-admin_access button {background:transparent!important;border:0!important;padding:0!important;min-height:0;color:#FFFFFF!important;font-size:11px;font-weight:700;letter-spacing:2px;}
+[data-testid="stSidebar"] .st-key-admin_access button p {font-size:11px;font-weight:700;letter-spacing:2px;}
 .block-container {max-width:1920px;padding-top:2.5rem;padding-bottom:3rem;}
 .brand {font-family:'Space Grotesk',sans-serif;font-size:25px;font-weight:700;letter-spacing:-1px;}
 .brand span {color:#9FCF67;}
@@ -32,6 +34,7 @@ h1,h2,h3 {font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.04em
 .group-count {color:#75898b;font-size:11px;font-weight:500;}
 .team-row {display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #f0f3f3;font-size:13px;}
 .team-row:last-child {border:0;}
+.team-row{gap:12px}.team-row>span:first-child{min-width:0;overflow-wrap:anywhere}
 .metrics-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin:20px 0 12px;}
 .metric-card {background:white;border:1px solid #e0e8e7;border-radius:12px;padding:16px 18px;}
 .metric-label {font-size:12px;color:#62787d;margin-bottom:5px;}
