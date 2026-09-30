@@ -41,9 +41,9 @@ h1,h2,h3 {font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.04em
 .group-head {border-left:4px solid #0D9648;padding:17px 20px;border-bottom:1px solid #e8eeed;font-weight:700;display:flex;justify-content:space-between;align-items:center;}
 .group-count {color:#75898b;font-size:11px;font-weight:500;}
 .phase-card {margin-top:12px;}
-.phase-card .group-head {font-family:'Space Grotesk',sans-serif;font-size:20px;}
+.phase-card .group-head {font-family:'Space Grotesk',sans-serif;font-size:20px;padding:14px 20px;}
 .phase-columns {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(240px,calc((100% - 72px)/4))),1fr));column-gap:24px;padding:8px 12px;}
-.phase-columns .team-row {padding:11px 8px;min-width:0;}
+.phase-columns .team-row {padding:8px;min-width:0;}
 .phase-columns .team-row:last-child {border-bottom:1px solid #f0f3f3;}
 .team-row {display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #f0f3f3;font-size:13px;}
 .team-row:last-child {border:0;}
