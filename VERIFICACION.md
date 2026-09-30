@@ -1,6 +1,6 @@
 # Verificación · 29 septiembre 2026
 
-65 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+75 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -10,9 +10,17 @@
 - Corregir una clasificación retira solo al equipo afectado de las rondas posteriores.
 - Una ronda con exceso de clasificados conserva la entrada manual y no bloquea el cambio de grupos.
 - Escrituras incorporan selecciones manuales recientes; se detectan conflictos de revisión.
-- Vistas públicas sin controles de escritura; Configuración, Equipos y Administración solo tras autenticación.
+- Menú público limitado a Inicio, Ruta al campeonato y Podio, sin selector de competencia.
+- Publicación compartida con etapa automática o manual; el cambio se refleja al abrir otra sesión.
+- Podio manual de tres posiciones con validación de equipos únicos y persistencia después de sincronizar Sheets.
+- Eliminar y restaurar la última competencia conserva equipos, rondas, podio y configuración.
+- Papelera dividida en partes para respetar el tamaño máximo de las celdas de Sheets.
+- Cerrar sesión desde una página administrativa vuelve a la navegación pública.
+- Árbol visual con nombres y estados, conexión de etapas, vista completa y ampliación; nombres escapados para evitar interpretar HTML.
+- Revisión visual local de Inicio, árbol completo y ampliado, y Podio.
+- Caché de lectura almacena datos básicos para evitar errores de serialización durante actualizaciones del código.
 - Lectura y escritura de rondas conservan sus datos al serializar y recuperar el torneo.
 
 La sincronización requiere una sesión abierta de Streamlit y consulta cada 10 segundos, con caché de 10 segundos. No funciona como un disparador autónomo de Google Sheets.
 
-Verificación del despliegue real: Streamlit carga sin error y muestra los 8 participantes de octavos. Google Sheets conserva 85 equipos, 4 bloques, 32 participantes en dieciseisavos y 8 en octavos; se comprobaron 85 desplegables de grupos y 8 de octavos. La competencia Seguidor de Linea se conserva. Antes de migrar se crearon copias ocultas con prefijo `_Antes libre`.
+Los datos reales se conservan durante esta actualización. Las pruebas de borrado/restauración y podio usan repositorios temporales; no se asignan ganadores ni se elimina una competencia real durante la verificación.

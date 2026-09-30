@@ -30,6 +30,10 @@ class Config:
     titulo: str = "Equipo STEM 2026"
     fecha: str = ""
     sistema: str = "Enfrentamientos"
+    etapa_publica: str = ""
+    puesto_1: str = ""
+    puesto_2: str = ""
+    puesto_3: str = ""
 
 
 @dataclass
@@ -70,14 +74,18 @@ class Competition:
 @dataclass
 class State:
     competitions: dict[str, Competition] = field(default_factory=dict)
+    public_competition: str = ""
+    archived: dict[str, Competition] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> "State":
-        return cls({key: Competition(Config(**v["config"]),
-                                    [Team(**t) for t in v["teams"]],
-                                    [Match(**m) for m in v["matches"]],
-                                    [Team(**t) for t in v.get("reserve", [])], v.get("rounds", {}))
-                    for key, v in data["competitions"].items()})
+        def competition(v):
+            return Competition(Config(**v["config"]), [Team(**t) for t in v["teams"]],
+                               [Match(**m) for m in v["matches"]],
+                               [Team(**t) for t in v.get("reserve", [])], v.get("rounds", {}))
+        return cls({key: competition(v) for key, v in data["competitions"].items()},
+                   data.get("public_competition", ""),
+                   {key: competition(v) for key, v in data.get("archived", {}).items()})

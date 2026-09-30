@@ -50,6 +50,11 @@ h1,h2,h3 {font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.04em
 .champion {background:#e2f6ea;border:1px solid #b1d8be;border-radius:18px;padding:32px;text-align:center;margin:20px 0;}
 .champion h2 {color:#175b3c!important;font-size:36px;}
 .muted {color:#72868a;font-size:13px;}
+.podium-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:end;margin:24px 0}
+.podium-place{background:white;border:1px solid #dce6e4;border-radius:16px;text-align:center;padding:28px 18px;min-height:190px}
+.podium-place h3{font-size:22px!important;margin-top:12px;overflow-wrap:anywhere}.podium-medal{font-size:48px}.podium-position{color:#0D9648;font-weight:700}
+.place-1{background:#e2f6ea;border:2px solid #0D9648;min-height:245px}.place-2{border-top:4px solid #00A99D}.place-3{border-top:4px solid #0087C3}
+@media(max-width:700px){.podium-grid{grid-template-columns:1fr}.place-1{order:-1;min-height:190px}}
 @media(max-width:700px){.hero{padding:22px}.hero h1{font-size:28px}.hero .accent{display:none}.block-container{padding:1.5rem 1rem}.group-grid{grid-template-columns:1fr}}
 </style>
 """

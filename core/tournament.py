@@ -159,6 +159,8 @@ def iniciar_eliminatorias(c: Competition, sorteo: bool = False) -> None:
 def reiniciar(c: Competition, alcance: str, confirmar: bool = False) -> None:
     if not confirmar:
         raise ValidationError("El reinicio requiere confirmación.")
+    c.config.puesto_1 = c.config.puesto_2 = c.config.puesto_3 = ""
+    c.config.etapa_publica = ""
     if c.config.sistema == "Libre":
         from core.free_rounds import reset
         reset(c,alcance)
@@ -190,6 +192,8 @@ def reiniciar(c: Competition, alcance: str, confirmar: bool = False) -> None:
 
 def validar_estado(state: State) -> None:
     """Rechaza datos manuales inconsistentes antes de mostrarlos o sobrescribirlos."""
+    from core.publication import validate_publication
+    validate_publication(state)
     ids, match_ids, nombres_comp = set(), set(), set()
     for nombre, c in state.competitions.items():
         validar_config(c.config)

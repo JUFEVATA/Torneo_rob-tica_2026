@@ -32,7 +32,7 @@ Los desplegables ofrecen cantidades habituales; también puedes escribir un ente
 3. Marca **Clasifica** junto a cualquier equipo. Aparece en **16 avos** al sincronizar, sin esperar a resolver todos los grupos.
 4. En cada ronda eliges libremente **Clasifica**, **No clasifica** o **Pendiente**. No hay parejas obligatorias ni perdedores automáticos. Cada seleccionado aparece en la siguiente hoja.
 5. Capacidades máximas: grupos → 32, dieciseisavos → 16, octavos → 8, cuartos → 4, semifinal → 2 y final → 1 campeón. Puedes ir completando las selecciones; no necesitas llenar una ronda para ver avanzar sus clasificados.
-6. **Participantes actuales** muestra quienes siguen compitiendo. **Historial** conserva la clasificación de grupos y los resultados por fase; permite filtrar y descargar CSV.
+6. **Inicio** muestra los participantes y estados de la etapa publicada. El administrador puede consultar **Historial** para filtrar y descargar todas las decisiones por fase.
 
 Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. La vista pública consulta los cambios cada 10 segundos; por la caché pueden tardar aproximadamente **10–20 segundos**. **Actualizar datos** fuerza la lectura. No hay un proceso programado que avance el torneo si la aplicación está cerrada o suspendida.
 
@@ -47,7 +47,24 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 
 ## Modo público y administrador
 
-El público ve Inicio, Participantes actuales, Historial, Grupos, Clasificados, Eliminatorias, Cuadro y Resultados. **Configuración, Equipos y Administración solo aparecen al iniciar sesión como administrador.** Las operaciones de escritura de la interfaz vuelven a comprobar la autenticación en el servidor.
+El público ve únicamente **Inicio**, **Ruta al campeonato** y **Podio**. No puede elegir la competencia. **Inicio** muestra la etapa publicada y sus participantes; cuando la etapa es Grupos, muestra sus tarjetas. **Ruta al campeonato** presenta un árbol simétrico con el campeón al centro, rondas pendientes y estados de los equipos. Puedes ampliar los nombres o ver el árbol desde otra ronda; en clasificación libre sus líneas conectan etapas y no definen rivales.
+
+El administrador dispone de **Publicación**, **Configuración**, **Equipos**, **Grupos**, **Eliminatorias**, **Historial** y **Administración**, además de las tres vistas públicas. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
+
+### Elegir qué ve el público
+
+1. Entra como administrador y abre **Publicación**.
+2. Selecciona **Competencia para el público**. Esa elección se comparte con todos los visitantes y se conserva al reiniciar.
+3. En **Etapa visible en Inicio**, deja **Automática según clasificaciones**, o selecciona manualmente una etapa.
+4. Pulsa **Publicar competencia y etapa**. Elegir una etapa manual cambia la presentación sin modificar clasificaciones ni resultados.
+
+### Primer, segundo y tercer puesto
+
+Como administrador, abre **Podio** y elige los tres equipos en **Editar puestos → Guardar podio**. Los visitantes ven únicamente el resultado. Un equipo no puede ocupar dos puestos. Los puestos pueden quedar **Por definir**. Si no se asigna manualmente el primero, se muestra el campeón de la final cuando existe; en torneos por parejas, también se obtiene automáticamente el segundo. Los puestos manuales se guardan por identidad del equipo y no cambian su clasificación deportiva.
+
+### Eliminar una competencia creada por error
+
+Selecciona la competencia como administrador y entra a **Administración → Eliminar competencia**. Escribe su nombre exacto y pulsa **Eliminar competencia**. Sale de la aplicación y de las hojas visibles; sus datos se guardan en la **Papelera**. Desde **Administración → Papelera → Restaurar competencia** recuperas configuración, equipos y resultados. Si eliminaste todas, Administración sigue disponible. La restauración no puede sobrescribir una competencia activa con el mismo nombre.
 
 La contraseña procede exclusivamente de `st.secrets["admin"]["password"]`. No hay una contraseña incorporada al código. Los permisos de edición del Google Sheet son independientes de la contraseña de Streamlit: comparte el libro solo con quienes deban administrarlo.
 
@@ -100,7 +117,7 @@ En Streamlit Community Cloud selecciona el repositorio, rama `main`, entrada `ap
 
 ## Persistencia y estructura
 
-Las hojas visibles son entradas editables y vistas de cada ronda. Las hojas ocultas **Configuracion**, **Equipos**, **Reserva**, **Partidos**, **Rondas**, **Clasificados** y **Resultados** conservan identidades estables, configuración y resultados. No las elimines. Ocultar una hoja sirve para simplificar la interfaz; no es un control de acceso.
+Las hojas visibles son entradas editables y vistas de cada ronda. Las hojas ocultas **Configuracion**, **Equipos**, **Reserva**, **Partidos**, **Rondas**, **Clasificados**, **Resultados**, **Publicacion** y **Papelera** conservan identidades estables, configuración y resultados. No las elimines. Ocultar una hoja sirve para simplificar la interfaz; no es un control de acceso.
 
 El repositorio lee todas las tablas en un `values_batch_get`, valida las ediciones y escribe los datos relacionados y desplegables en un solo `spreadsheets.batchUpdate`. Antes de guardar compara una huella y vuelve a leer para detectar ediciones simultáneas. No escribe al refrescar si nada cambió. Los nombres se envían como texto, incluso si empiezan por `=`.
 
@@ -110,6 +127,7 @@ Código principal:
 
 - `core/group_board.py`: tarjetas, controles automáticos de cantidades, distribución y reserva.
 - `core/sheet_flow.py`: importación del boletín, decisiones por hoja, participantes actuales e historial.
+- `core/publication.py` y `core/tree.py`: competencia pública, etapa manual, podio, papelera y árbol visual.
 - `core/free_rounds.py`: clasificación libre y propagación por identidad estable.
 - `core/tournament.py` y `core/eliminatorias.py`: validaciones, distribución y avance de rondas.
 - `services/google_sheets.py`: sincronización, escritura por lote y desplegables.

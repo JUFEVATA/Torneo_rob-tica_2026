@@ -7,7 +7,7 @@ import time
 
 import streamlit as st
 
-from core.models import ConflictError, ValidationError
+from core.models import ConflictError, ValidationError, State
 from services.google_sheets import conectar_google_sheets
 from services.repository import LocalRepository
 
@@ -48,7 +48,7 @@ def login(password):
 
 @st.cache_resource
 def get_repository(mode):
-    # Schema v3: rondas libres y configuración automática del tablero.
+    # Schema v4: publicación compartida, podio y papelera de competencias.
     if mode == "demo":
         from services.demo import seed
         repo = LocalRepository(Path(__file__).resolve().parents[1] / ".demo" / "torneo.json")
@@ -58,8 +58,23 @@ def get_repository(mode):
 
 
 @st.cache_data(ttl=10, show_spinner=False)
+def _read_data(mode):
+    state, revision = get_repository(mode).read()
+    # Solo datos básicos en caché: las clases pueden cambiar durante un despliegue.
+    return state.to_dict(), revision, getattr(state, "sync_issues", {}), getattr(state, "sync_error", "")
+
+
 def read_state(mode):
-    return get_repository(mode).read()
+    data, revision, issues, error = _read_data(mode)
+    state = State.from_dict(data)
+    if issues:
+        state.sync_issues = issues
+    if error:
+        state.sync_error = error
+    return state, revision
+
+
+read_state.clear = _read_data.clear
 
 
 def execute(mode, revision, operation, message="Cambios guardados."):

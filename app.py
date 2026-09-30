@@ -1,14 +1,12 @@
 """Punto de entrada: streamlit run app.py"""
 import os
-import pandas as pd
 import streamlit as st
 
-from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes, rondas_libres
-from components.layout import bracket, champion, group_cards, hero, inject_style, metrics
+from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes, rondas_libres, publico, publicacion
+from components.layout import inject_style
 from core.models import ValidationError
+from core.publication import PUBLIC_PAGES, public_name
 from services.runtime import admin_password, is_admin, login, read_state, get_repository, connection_error
-from services.serialization import encode
-from utils.helpers import csv_seguro
 
 st.set_page_config(page_title="Torneos de robótica · STEM 2026", page_icon="🤖", layout="wide")
 inject_style()
@@ -36,7 +34,6 @@ with st.sidebar:
     st.divider()
     if mode == "demo":
         st.caption("DEMOSTRACIÓN · DATOS LOCALES")
-    st.caption("COMPETENCIA")
     try:
         initial_state, _ = read_state(mode)
     except ValidationError as error:
@@ -55,12 +52,17 @@ with st.sidebar:
             st.rerun()
         st.stop()
     options = list(initial_state.competitions)
-    selected = st.selectbox("Competencia activa", options, label_visibility="collapsed") if options else None
+    editable_at_start = is_admin()
+    if editable_at_start:
+        st.caption("COMPETENCIA")
+        selected = st.selectbox("Competencia activa", options, label_visibility="collapsed") if options else None
+    else:
+        selected = public_name(initial_state)
+        if selected:
+            st.caption(selected)
     st.caption("TORNEO")
-    pages = ["Inicio", "Participantes actuales", "Historial", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados"]
-    if is_admin():
-        pages += ["Configuración", "Equipos", "Administración"]
-    page = st.radio("Navegación", pages, label_visibility="collapsed")
+    pages = PUBLIC_PAGES + (["Publicación", "Configuración", "Equipos", "Grupos", "Eliminatorias", "Historial", "Administración"] if editable_at_start else [])
+    page = st.radio("Navegación", pages, label_visibility="collapsed", key="admin_navigation" if editable_at_start else "public_navigation")
     st.divider()
     if is_admin():
         st.caption("● MODO ADMINISTRADOR")
@@ -103,14 +105,17 @@ def content():
     except Exception as error:
         st.error(connection_error(error))
         return
-    if list(state.competitions) != options:
-        st.rerun()  # mantiene actualizado el selector al crear otra competencia
-    c = state.competitions.get(selected)
     editable = is_admin()
+    if list(state.competitions) != options or editable != editable_at_start or (not editable and public_name(state) != selected):
+        st.rerun()
+    c = state.competitions.get(selected if editable else public_name(state))
     if getattr(state, "sync_error", ""):
         st.warning("Hay decisiones en la hoja pendientes de revisión. Se muestran los últimos resultados validados.")
         if editable:
             st.error(state.sync_error)
+    if page == "Administración" and editable:
+        admin.render(state, c, mode, revision, True)
+        return
     if page == "Configuración" or not c:
         if editable:
             configuracion.render(state, c, mode, revision, True)
@@ -119,47 +124,28 @@ def content():
         return
     st.markdown('<div class="eyebrow">CENTRO DE COMPETENCIA / ' + page.upper() + '</div>', unsafe_allow_html=True)
     if page == "Inicio":
-        st.title("Torneos de robótica")
-        hero(c)
-        metrics(c)
-        st.caption(f"Fase actual: {c.config.fase_actual}")
-        champion(c)
-        st.markdown('<div class="section-label">DISTRIBUCIÓN DEL TORNEO</div>', unsafe_allow_html=True)
-        st.subheader("Grupos en competencia")
-        group_cards(c)
-    elif page == "Participantes actuales":
-        participantes.actuales(c)
+        publico.home(c)
+    elif page == "Ruta al campeonato":
+        publico.render_tree(c)
+    elif page == "Podio":
+        publico.render_podium(c)
+        if editable:
+            publicacion.edit_podium(c, mode, revision)
+    elif page == "Publicación" and editable:
+        publicacion.render(state, c, mode, revision)
     elif page == "Historial":
         participantes.historial(c)
     elif page == "Equipos":
         equipos.render(c, mode, revision, editable)
     elif page == "Grupos":
         grupos.render(c, mode, revision, editable)
-    elif c.config.sistema == "Libre" and page in ("Clasificados", "Eliminatorias", "Cuadro"):
+    elif c.config.sistema == "Libre" and page == "Eliminatorias":
         rondas_libres.render(c, mode, revision, editable)
-    elif page == "Clasificados":
-        clasificados.render(c, mode, revision, editable)
     elif page == "Eliminatorias":
-        eliminatorias.render(c, mode, revision, editable)
-    elif page == "Cuadro":
-        st.header("Cuadro del torneo")
-        bracket(c)
-    elif page == "Resultados":
-        st.header("Resultados")
-        champion(c)
-        if c.config.sistema == "Libre":
-            participantes.historial(c)
-        elif c.matches:
-            frame = pd.DataFrame([{"Ronda": m.fase, "Partido": m.numero_partido,
-                                   "Equipo 1": c.name(m.equipo_1), "Equipo 2": c.name(m.equipo_2),
-                                   "Ganador": c.name(m.ganador) if m.ganador else "", "Estado": m.estado}
-                                  for m in c.matches])
-            st.dataframe(frame, hide_index=True, width="stretch")
-            st.download_button("Descargar resultados CSV", csv_seguro(frame), "resultados.csv", "text/csv")
+        if not c.matches:
+            clasificados.render(c, mode, revision, editable)
         else:
-            st.info("Todavía no hay partidos registrados.")
-    elif page == "Administración":
-        admin.render(c, mode, revision, editable)
+            eliminatorias.render(c, mode, revision, editable)
 
 
 content()

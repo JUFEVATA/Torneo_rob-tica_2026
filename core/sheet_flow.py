@@ -143,6 +143,8 @@ def import_roster(state: State, roster: Roster, replace=False) -> None:
     config.sistema = existing.config.sistema if existing else "Libre"
     candidate = Competition(config, teams)
     if existing:
+        for key in ("etapa_publica", "puesto_1", "puesto_2", "puesto_3"):
+            setattr(config, key, getattr(existing.config, key))
         candidate.reserve = [deepcopy(t) for t in existing.reserve if t.id_equipo not in {team.id_equipo for team in teams}]
         order = {t.id_equipo:i for i,t in enumerate(existing.teams)}
         candidate.teams.sort(key=lambda t:order.get(t.id_equipo, len(order)))

@@ -60,15 +60,59 @@ class InterfaceTests(unittest.TestCase):
         at = self.app()
         forbidden = {"GENERAR GRUPOS", "GENERAR ELIMINATORIAS", "Guardar equipo", "Confirmar reinicio", "Crear competencia", "✓ CLASIFICA"}
         self.assertFalse({"Configuración", "Equipos", "Administración"}.intersection(widget(at.radio, "Navegación").options))
-        for page in ["Inicio", "Participantes actuales", "Historial", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados"]:
+        self.assertEqual(widget(at.radio, "Navegación").options, ["Inicio", "Ruta al campeonato", "Podio"])
+        self.assertFalse(any(w.label == "Competencia activa" for w in at.selectbox))
+        for page in ["Inicio", "Ruta al campeonato", "Podio"]:
             self.page(at, page)
             self.assertFalse(forbidden.intersection(b.label for b in at.button))
 
     def test_admin_all_pages(self):
         self.load_tournament()
         at = self.app(True)
-        for page in ["Inicio", "Configuración", "Equipos", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados", "Administración"]:
+        for page in ["Inicio", "Ruta al campeonato", "Podio", "Publicación", "Configuración", "Equipos", "Grupos", "Eliminatorias", "Historial", "Administración"]:
             self.page(at, page)
+
+    def test_publish_stage_and_competition_shared_with_new_public_session(self):
+        from tests.test_free_rounds import free_state
+        from core.free_rounds import classify
+        state,c=free_state()
+        for t in c.teams[:2]: classify(c, "Grupos", t.id_equipo, "Clasificado")
+        _,rev=self.repo.read();self.repo.transact(rev,lambda s:s.competitions.update(state.competitions))
+        at=self.app(True);self.page(at,"Publicación")
+        widget(at.selectbox,"Etapa visible en Inicio").set_value("Dieciseisavos")
+        widget(at.button,"Publicar competencia y etapa").click().run()
+        self.assertFalse(at.exception)
+        public=self.app()
+        self.assertEqual(len(public.dataframe[0].value),2)
+        self.assertTrue(any(h.value=="16 avos" for h in public.header))
+        self.assertFalse(any("Equipo 1" in m.value for m in public.markdown))
+
+    def test_save_three_places_visible_to_public(self):
+        self.load_tournament();at=self.app(True);self.page(at,"Podio")
+        ids=[t.id_equipo for t in self.repo.read()[0].competitions["Sumo"].teams[:3]]
+        for label,tid in zip(["Primer puesto","Segundo puesto","Tercer puesto"],ids):widget(at.selectbox,label).set_value(tid)
+        widget(at.button,"Guardar podio").click().run();self.assertFalse(at.exception)
+        public=self.app();self.page(public,"Podio")
+        html=" ".join(m.value for m in public.markdown)
+        for label in ["1.º puesto","2.º puesto","3.º puesto","Equipo 1","Equipo 2","Equipo 3"]:self.assertIn(label,html)
+        self.assertFalse(any(b.label=="Guardar podio" for b in public.button))
+
+    def test_delete_and_restore_last_competition_from_admin(self):
+        self.load_tournament();at=self.app(True);self.page(at,"Administración")
+        widget(at.button,"Eliminar competencia").click().run()
+        self.assertTrue(self.repo.read()[0].competitions)
+        widget(at.text_input,"Nombre de la competencia que vas a eliminar").set_value("Sumo")
+        widget(at.button,"Eliminar competencia").click().run();self.assertFalse(at.exception)
+        self.assertFalse(self.repo.read()[0].competitions)
+        self.assertEqual(len(self.repo.read()[0].archived),1)
+        widget(at.button,"Restaurar competencia").click().run();self.assertFalse(at.exception)
+        self.assertEqual(len(self.repo.read()[0].competitions["Sumo"].teams),8)
+
+    def test_logout_from_admin_page_returns_to_public_home(self):
+        self.load_tournament();at=self.app(True);self.page(at,"Configuración")
+        widget(at.button,"Cerrar sesión").click().run();self.assertFalse(at.exception)
+        self.assertEqual(widget(at.radio,"Navegación").options,["Inicio","Ruta al campeonato","Podio"])
+        self.assertFalse(any(w.label=="Competencia activa" for w in at.selectbox))
 
     def test_free_public_and_admin_pages_and_save(self):
         from tests.test_free_rounds import free_state
@@ -77,11 +121,11 @@ class InterfaceTests(unittest.TestCase):
         for team in c.teams[:32]: classify(c,'Grupos',team.id_equipo,'Clasificado')
         _,rev=self.repo.read();self.repo.transact(rev,lambda s:s.competitions.update(state.competitions))
         at=self.app()
-        for name in ['Inicio','Clasificados','Eliminatorias','Cuadro','Resultados','Participantes actuales','Historial']:
+        for name in ['Inicio','Ruta al campeonato','Podio']:
             self.page(at,name)
             self.assertFalse(any(b.label=='Guardar clasificación' for b in at.button))
         at=self.app(True)
-        for name in ['Configuración','Equipos','Grupos','Eliminatorias','Resultados','Administración']:
+        for name in ['Configuración','Equipos','Grupos','Eliminatorias','Podio','Publicación','Administración']:
             self.page(at,name)
         self.page(at,'Eliminatorias')
         for team in c.teams[:2]:widget(at.selectbox,team.nombre_equipo).set_value('Clasifica')
@@ -115,7 +159,7 @@ class InterfaceTests(unittest.TestCase):
     def test_entire_bracket_from_ui_and_new_session(self):
         self.load_tournament()
         at = self.app(True)
-        self.page(at, "Clasificados")
+        self.page(at, "Eliminatorias")
         widget(at.button, "GENERAR ELIMINATORIAS").click().run()
         self.page(at, "Eliminatorias")
         for _ in range(7):
@@ -125,8 +169,8 @@ class InterfaceTests(unittest.TestCase):
             self.assertFalse(at.exception)
         self.assertTrue(self.repo.read()[0].competitions["Sumo"].config.campeon)
         public = self.app()
-        self.page(public, "Resultados")
-        self.assertTrue(any("CAMPEÓN" in m.value for m in public.markdown))
+        self.page(public, "Podio")
+        self.assertTrue(any("1.º puesto" in m.value for m in public.markdown))
         self.assertFalse(any(b.label.endswith(" gana") for b in public.button))
 
     def test_reset_requires_checkbox_and_exact_name(self):
@@ -152,8 +196,8 @@ class InterfaceTests(unittest.TestCase):
         at.run()
         self.assertEqual(self.repo.read()[0].competitions["Sumo"].teams[0].nombre_equipo, "Swampy")
         second = self.app()
-        self.page(second, "Participantes actuales")
-        self.assertIn("Swampy", second.dataframe[0].value["Equipo"].tolist())
+        self.page(second, "Inicio")
+        self.assertTrue(any("Swampy" in m.value for m in second.markdown))
 
     def test_admin_imports_complete_roster_and_public_history(self):
         at = self.app(True)
@@ -163,10 +207,9 @@ class InterfaceTests(unittest.TestCase):
         self.assertFalse(at.exception)
         self.assertEqual(len(self.repo.read()[0].competitions["Sumo"].teams),85)
         public = self.app()
-        self.page(public,"Participantes actuales")
-        self.assertEqual(len(public.dataframe[0].value),85)
-        self.page(public,"Historial")
-        self.assertEqual(len(public.dataframe[0].value),85)
+        self.assertEqual(widget(public.radio, "Navegación").options, ["Inicio", "Ruta al campeonato", "Podio"])
+        self.page(at,"Historial")
+        self.assertEqual(len(at.dataframe[0].value),85)
 
     def test_admin_group_dropdown_persists(self):
         self.load_tournament()
@@ -199,5 +242,5 @@ class InterfaceTests(unittest.TestCase):
             at=self.app()
             self.assertTrue(at.warning)
             self.assertFalse(at.error)
-            self.page(at,"Participantes actuales")
-            self.assertEqual(len(at.dataframe[0].value),8)
+            self.page(at,"Inicio")
+            self.assertTrue(any("Equipo 1" in m.value for m in at.markdown))

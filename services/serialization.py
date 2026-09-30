@@ -9,6 +9,8 @@ from core.models import Competition, Config, Match, State, Team, ValidationError
 from core.tournament import validar_estado
 
 HEADERS = {
+    "Publicacion": ["competencia"],
+    "Papelera": ["id_archivo", "parte", "datos"],
     "Configuracion": ["competencia", "campo", "valor"],
     "Equipos": [f.name for f in fields(Team)],
     "Grupos": ["Sin grupos"],
@@ -59,6 +61,27 @@ def records(rows: list[list], tab: str) -> list[dict]:
 
 def decode(tables: dict) -> State:
     state, configs = State(), {}
+    publication = records(tables.get("Publicacion", []), "Publicacion")
+    if len(publication) > 1:
+        raise ValidationError("Solo puede haber una competencia publicada.")
+    if publication:
+        state.public_competition = str(publication[0]["competencia"])
+    archives = {}
+    for row in records(tables.get("Papelera", []), "Papelera"):
+        archive_id = str(row["id_archivo"])
+        part = entero(row["parte"])
+        chunks = archives.setdefault(archive_id, {})
+        if not archive_id or part < 1 or part in chunks:
+            raise ValidationError("Registro duplicado en Papelera.")
+        chunks[part] = str(row["datos"])
+    for archive_id, chunks in archives.items():
+        if sorted(chunks) != list(range(1, len(chunks)+1)):
+            raise ValidationError("Falta una parte de un respaldo en Papelera.")
+        try:
+            data = json.loads("".join(chunks[part] for part in sorted(chunks)))
+            state.archived[archive_id] = State.from_dict({"competitions": {"saved": data}}).competitions["saved"]
+        except (ValueError, KeyError, TypeError):
+            raise ValidationError("Respaldo inválido en Papelera.") from None
     allowed = {f.name for f in fields(Config)}
     for row in records(tables.get("Configuracion", []), "Configuracion"):
         name, key, value = str(row["competencia"]), str(row["campo"]), row["valor"]
@@ -119,6 +142,12 @@ def clasificados_actuales(c: Competition) -> tuple[str, list[str]]:
 
 def encode(state: State) -> dict[str, list[list]]:
     tables = {tab: [list(header)] for tab, header in HEADERS.items()}
+    if state.public_competition:
+        tables["Publicacion"].append([state.public_competition])
+    for archive_id, c in state.archived.items():
+        data = json.dumps(asdict(c), ensure_ascii=False)
+        for offset in range(0, len(data), 30000):
+            tables["Papelera"].append([archive_id, offset//30000+1, data[offset:offset+30000]])
     columns = []
     for name, c in state.competitions.items():
         for key, value in asdict(c.config).items():
@@ -142,13 +171,9 @@ def encode(state: State) -> dict[str, list[list]]:
         for team_id in clasificados:
             t = next(t for t in c.teams if t.id_equipo == team_id)
             tables["Clasificados"].append([name, fase, t.id_equipo, t.nombre_equipo, t.grupo])
-        if c.config.sistema == 'Libre':
-            if c.config.campeon:tables['Resultados'].append([name,1,c.config.campeon,c.name(c.config.campeon)])
-            continue
-        if c.config.campeon:
-            final = partidos_fase(c, "Final")[0]
-            segundo = final.equipo_2 if final.ganador == final.equipo_1 else final.equipo_1
-            for posicion, team_id in ((1, c.config.campeon), (2, segundo)):
+        from core.publication import podium
+        for posicion, team_id in podium(c).items():
+            if team_id:
                 tables["Resultados"].append([name, posicion, team_id, c.name(team_id)])
     if columns:
         tables["Grupos"] = [[col[row] if row < len(col) else "" for col in columns]
