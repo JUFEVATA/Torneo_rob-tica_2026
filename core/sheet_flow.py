@@ -140,6 +140,7 @@ def import_roster(state: State, roster: Roster, replace=False) -> None:
                     fase_actual='Grupos', torneo_iniciado=True,
                     equipos_por_grupo=', '.join(map(str, distribuir(len(teams), roster.groups))),
                     metodo_grupos='Listado importado', titulo=roster.title, fecha=roster.date)
+    config.sistema = existing.config.sistema if existing else "Libre"
     candidate = Competition(config, teams)
     if existing:
         candidate.reserve = [deepcopy(t) for t in existing.reserve if t.id_equipo not in {team.id_equipo for team in teams}]
@@ -157,6 +158,10 @@ def import_roster(state: State, roster: Roster, replace=False) -> None:
         candidate.matches = deepcopy(existing.matches)
         candidate.config.fase_actual = existing.config.fase_actual
         candidate.config.campeon = existing.config.campeon
+    if config.sistema == "Libre":
+        from core.free_rounds import reconcile
+        candidate.rounds = deepcopy(existing.rounds) if existing else {}
+        reconcile(candidate)
     state.competitions[roster.name] = candidate
 
 
@@ -180,10 +185,24 @@ def group_rows(state: State) -> list[list]:
 
 def phase_rows(state: State, phase: str) -> list[list]:
     rows = [['TORNEOS DE ROBÓTICA · ' + PHASE_SHEETS[phase]],
-            ['Partido', 'Equipo', 'Estado', 'id_partido', 'id_equipo']]
+            ['N.º', 'Equipo', 'Estado', 'id_partido', 'id_equipo']]
     for c in state.competitions.values():
+        if c.config.sistema == 'Libre':
+            entries=c.rounds.get(phase,{})
+            if entries:
+                rows.append(['Competencia: '+c.config.competencia])
+                for i,(tid,status) in enumerate(entries.items(),1):
+                    rows.append([i,c.name(tid),TO_PUBLIC[status],f'free:{phase}:{tid}',tid])
+            continue
         matches = partidos_fase(c, phase)
         if not matches:
+            index = ORDEN_FASES.index(phase)
+            previous = partidos_fase(c, ORDEN_FASES[index-1]) if index else []
+            winners = [m for m in previous if m.ganador]
+            if winners:
+                rows.append(['Competencia: ' + c.config.competencia])
+                for m in winners:
+                    rows.append([(m.numero_partido+1)//2,c.name(m.ganador),'En espera','',m.ganador])
             continue
         rows.append(['Competencia: ' + c.config.competencia])
         for m in matches:
@@ -199,7 +218,7 @@ def stage_tables(state: State) -> dict:
     return {'Grupos': board_rows(state), **{tab: phase_rows(state, phase) for phase, tab in PHASE_SHEETS.items()}}
 
 
-def apply_sheet_edits(state: State, tables: dict) -> State:
+def apply_sheet_edits(state: State, tables: dict, strict=True) -> State:
     """Reconciliación de entradas editadas, sin tomar proyecciones viejas por cambios.
 
     Compara contra la proyección del estado persistido y aplica solo decisiones
@@ -231,45 +250,80 @@ def apply_sheet_edits(state: State, tables: dict) -> State:
     for phase, tab in PHASE_SHEETS.items():
         if legacy and not tables.get(tab):
             continue
-        expected = {(str(row[3]), str(row[4])): row[2] for row in phase_rows(state,phase) if len(row) >= 5 and row[3] != 'id_partido'}
-        changed, all_rows, seen = {}, {}, set()
-        for row in tables.get(tab, []):
-            if len(row) < 4 or row[3] in ('', 'id_partido'):
-                continue
-            if len(row) < 5 or not row[4]:
-                raise ValidationError(f'{tab}: faltan IDs de un cruce. No cambies las columnas ocultas.')
-            key = (str(row[3]), str(row[4]))
-            if key in seen or key not in expected:
-                raise ValidationError(f'{tab}: equipo/partido duplicado o desconocido.')
-            seen.add(key)
-            status = str(row[2] or 'Pendiente')
-            if status not in STATES:
-                raise ValidationError(f'{tab}: estado inválido.')
-            all_rows.setdefault(key[0], {})[key[1]] = status
-            if status != expected[key]:
-                changed.setdefault(key[0], {})[key[1]] = status
-        if expected and seen != set(expected):
-            raise ValidationError(f'{tab}: no elimines participantes de una ronda. Selecciona su estado.')
-        for mid, changes in changed.items():
-            c = next((c for c in updated.competitions.values() if any(m.id_partido == mid for m in c.matches)), None)
-            if c is None:
-                raise ValidationError('El partido ya no existe.')
-            m = next(m for m in c.matches if m.id_partido == mid)
-            if m.ganador:
-                raise ValidationError(f'{tab}, partido {m.numero_partido}: corrige resultados finalizados desde Administración/Eliminatorias y confirma sus efectos.')
-            statuses = all_rows[mid]
-            winners = [t for t,s in statuses.items() if s == 'Clasifica']
-            losers = [t for t,s in statuses.items() if s == 'No clasifica']
-            if len(winners)>1 or len(losers)>1:
-                raise ValidationError(f'{tab}, partido {m.numero_partido}: solo puede clasificar un equipo.')
-            winner = winners[0] if winners else next((t for t in (m.equipo_1,m.equipo_2) if t and t not in losers), '') if losers else ''
-            if winner:
-                actualizar_ganador(c, mid, winner)
+        candidate = deepcopy(updated)
+        try:
+            _apply_phase_edits(candidate, state, tables, phase, tab)
+        except ValidationError as error:
+            if strict:
+                raise
+            issues = dict(getattr(updated, 'sync_issues', {}))
+            issues[tab] = str(error)
+            updated.sync_issues = issues
+            updated.sync_error = ' | '.join(issues.values())
+        else:
+            updated = candidate
     validar_estado(updated)
     return updated
 
 
+def _apply_phase_edits(updated, state, tables, phase, tab):
+    for name,c in updated.competitions.items():
+        if c.config.sistema != 'Libre':continue
+        old=state.competitions[name].rounds.get(phase,{}) if name in state.competitions else {}
+        found={}
+        for row in tables.get(tab,[]):
+            if len(row)<5 or row[4] not in old:continue
+            tid=str(row[4])
+            if str(row[3]) != f'free:{phase}:{tid}' or tid in found:
+                raise ValidationError(f'{tab}: registro libre duplicado o ID modificado.')
+            if row[2] not in STATES:raise ValidationError(f'{tab}: estado inválido.')
+            found[tid]=TO_INTERNAL[row[2]]
+        if set(found)!=set(old):raise ValidationError(f'{tab}: faltan equipos de la fase; usa los desplegables.')
+        for tid,status in found.items():
+            if status != old[tid] and tid in c.rounds.get(phase,{}):c.rounds[phase][tid]=status
+        from core.free_rounds import reconcile
+        reconcile(c)
+    expected = {(str(row[3]), str(row[4])): row[2] for row in phase_rows(state,phase) if len(row) >= 5 and row[3] and row[3] != 'id_partido' and not str(row[3]).startswith('free:')}
+    changed, all_rows, seen = {}, {}, set()
+    for row in tables.get(tab, []):
+        if len(row) < 4 or row[3] in ('', 'id_partido') or str(row[3]).startswith('free:'):
+            continue
+        if len(row) < 5 or not row[4]:
+            raise ValidationError(f'{tab}: faltan IDs de un cruce. No cambies las columnas ocultas.')
+        key = (str(row[3]), str(row[4]))
+        if key in seen or key not in expected:
+            raise ValidationError(f'{tab}: equipo/partido duplicado o desconocido.')
+        seen.add(key)
+        status = str(row[2] or 'Pendiente')
+        if status not in STATES:
+            raise ValidationError(f'{tab}: estado inválido.')
+        all_rows.setdefault(key[0], {})[key[1]] = status
+        if status != expected[key]:
+            changed.setdefault(key[0], {})[key[1]] = status
+    if expected and seen != set(expected):
+        raise ValidationError(f'{tab}: no elimines participantes de una ronda. Selecciona su estado.')
+    for mid, changes in changed.items():
+        c = next((c for c in updated.competitions.values() if any(m.id_partido == mid for m in c.matches)), None)
+        if c is None:
+            raise ValidationError('El partido ya no existe.')
+        m = next(m for m in c.matches if m.id_partido == mid)
+        if m.ganador:
+            raise ValidationError(f'{tab}, partido {m.numero_partido}: corrige resultados finalizados desde Administración/Eliminatorias y confirma sus efectos.')
+        statuses = all_rows[mid]
+        winners = [t for t,s in statuses.items() if s == 'Clasifica']
+        losers = [t for t,s in statuses.items() if s == 'No clasifica']
+        if len(winners)>1 or len(losers)>1:
+            raise ValidationError(f'{tab}, partido {m.numero_partido}: solo puede clasificar un equipo.')
+        winner = winners[0] if winners else next((t for t in (m.equipo_1,m.equipo_2) if t and t not in losers), '') if losers else ''
+        if winner:
+            actualizar_ganador(c, mid, winner)
+
+
 def active_participants(c: Competition) -> list[dict]:
+    if c.config.sistema == 'Libre':
+        from core.free_rounds import active
+        current=active(c)
+        return [{'Equipo':t.nombre_equipo,'Grupo de origen':t.grupo,'Fase actual':current[t.id_equipo]} for t in c.teams if t.id_equipo in current]
     if c.config.campeon:
         ids = {c.config.campeon}
     elif c.matches:
@@ -285,6 +339,11 @@ def active_participants(c: Competition) -> list[dict]:
 def history_rows(c: Competition) -> list[dict]:
     rows = [{'Fase':'Grupos','Partido':'','Equipo':t.nombre_equipo,'Grupo':t.grupo,
              'Resultado': TO_PUBLIC[t.estado]} for t in c.teams]
+    if c.config.sistema == 'Libre':
+        for phase,entries in c.rounds.items():
+            for tid,status in entries.items():
+                rows.append({'Fase':phase,'Partido':'','Equipo':c.name(tid),'Grupo':next(t.grupo for t in c.teams if t.id_equipo==tid),'Resultado':'Campeón' if tid==c.config.campeon and phase=='Final' else TO_PUBLIC[status]})
+        return rows
     for phase in ORDEN_FASES:
         for m in partidos_fase(c,phase):
             for tid in (m.equipo_1,m.equipo_2):

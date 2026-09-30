@@ -46,7 +46,7 @@ class GoogleSheetsRepository:
 
     def initialize(self):
         with _LOCK:
-            if self._initialized:
+            if self._initialized and all(tab in self.properties for tab in MANAGED_TABS):
                 return
             metadata = self.spreadsheet.fetch_sheet_metadata()
             self.properties = {s["properties"]["title"]: s["properties"] for s in metadata["sheets"]}
@@ -85,13 +85,15 @@ class GoogleSheetsRepository:
             # Las hojas visibles son entradas editables; las internas conservan el
             # historial. Una importación inválida no escribe ningún dato.
             try:
-                updated = apply_sheet_edits(state, tables)
+                updated = apply_sheet_edits(state, tables, strict=False)
             except ValidationError as error:
                 # Un borrador inválido en la hoja no deja fuera de servicio al
                 # público ni se sobrescribe. Se muestra el último estado válido.
                 state.sync_error = str(error)
                 return state, fingerprint(tables)
             projections = stage_tables(updated)
+            for tab in getattr(updated, "sync_issues", {}):
+                projections[tab] = tables[tab]
             preserve_drafts(projections["Grupos"], tables.get("Grupos", []))
             needs_sync = updated != state or any(
                 normalized_rows(tables.get(tab, [])) != normalized_rows(rows)
@@ -99,7 +101,11 @@ class GoogleSheetsRepository:
             if needs_sync:
                 self._commit(updated, tables)
                 tables = self._tables()
-            return decode(tables), fingerprint(tables)
+            result = decode(tables)
+            if getattr(updated, "sync_issues", {}):
+                result.sync_issues = updated.sync_issues
+                result.sync_error = updated.sync_error
+            return result, fingerprint(tables)
 
     def transact(self, revision, operation):
         with _LOCK:
@@ -107,7 +113,7 @@ class GoogleSheetsRepository:
             if fingerprint(original) != revision:
                 raise ConflictError("Los datos cambiaron en Google Sheets. Actualiza y vuelve a intentar.")
             state = deepcopy(decode(original))
-            apply_sheet_edits(state, original)  # no sobrescribir decisiones manuales inválidas
+            state = apply_sheet_edits(state, original)  # incorpora decisiones manuales válidas
             operation(state)
             validar_estado(state)
             self._commit(state, original)
@@ -117,6 +123,8 @@ class GoogleSheetsRepository:
     def _commit(self, state, original):
         updated = encode(state)
         updated.update(stage_tables(state))
+        for tab in getattr(state, "sync_issues", {}):
+            updated[tab] = original[tab]
         preserve_drafts(updated["Grupos"], original.get("Grupos", []))
         if fingerprint(self._tables()) != fingerprint(original):
             raise ConflictError("Se detectó una edición concurrente. No se escribió ningún cambio.")
@@ -161,14 +169,14 @@ class GoogleSheetsRepository:
                 for col, pixels in enumerate([430,180] if tab == 'Grupos' else [100,430,180]):
                     requests.append({"updateDimensionProperties": {"range": {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": col, "endIndex": col+1}, "properties": {"pixelSize": pixels, "hiddenByUser": False}, "fields": "pixelSize,hiddenByUser"}})
                 for index, row in enumerate(rows[1:], start=1):
-                    if row and (str(row[0]).startswith(('Equipo ', 'Competencia:')) and len(row) == 1 or row[0] in ('Nombre del equipo', 'Partido')):
+                    if row and (str(row[0]).startswith(('Equipo ', 'Competencia:')) and len(row) == 1 or row[0] in ('Nombre del equipo', 'Partido', 'N.º')):
                         requests.append({"repeatCell": {"range": {"sheetId": sheet_id, "startRowIndex": index, "endRowIndex": index+1, "endColumnIndex": status_col+1},
                             "cell": {"userEnteredFormat": {"backgroundColor": {"red": .624, "green": .812, "blue": .404}, "textFormat": {"bold": True}}}, "fields": "userEnteredFormat(backgroundColor,textFormat.bold)"}})
                 # Limpia reglas antiguas al cambiar la cantidad de participantes.
                 requests.append({"setDataValidation": {"range": {"sheetId": sheet_id,
                     "startColumnIndex": status_col, "endColumnIndex": status_col+1}}})
                 for index, row in enumerate(rows):
-                    if len(row) <= id_col or not row[id_col] or row[id_col] == 'id_equipo':
+                    if len(row) <= id_col or not row[id_col] or row[id_col] == 'id_equipo' or (tab in STAGE_TABS and not row[3]):
                         continue
                     requests.append({"setDataValidation": {"range": {"sheetId": sheet_id,
                         "startRowIndex": index, "endRowIndex": index+1,

@@ -71,6 +71,9 @@ def metrics(c):
               ("Grupos", c.config.numero_grupos if c.config.torneo_iniciado else 0),
               ("Clasificados", f"{sum(t.clasificado for t in c.teams)} / {c.config.cupos_clasificados}"),
               ("Partidos finalizados", f"{sum(bool(m.ganador) for m in c.matches)} / {len(c.matches)}")]
+    if c.config.sistema == "Libre":
+        from core.free_rounds import active
+        values[-1] = ("En competencia", len(active(c)))
     st.markdown('<div class="metrics-grid">' + ''.join(
         f'<div class="metric-card"><div class="metric-label">{label}</div><div class="metric-value">{value}</div></div>'
         for label, value in values) + '</div>', unsafe_allow_html=True)

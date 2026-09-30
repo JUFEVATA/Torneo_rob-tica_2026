@@ -70,6 +70,25 @@ class InterfaceTests(unittest.TestCase):
         for page in ["Inicio", "Configuración", "Equipos", "Grupos", "Clasificados", "Eliminatorias", "Cuadro", "Resultados", "Administración"]:
             self.page(at, page)
 
+    def test_free_public_and_admin_pages_and_save(self):
+        from tests.test_free_rounds import free_state
+        from core.free_rounds import classify
+        state,c=free_state()
+        for team in c.teams[:32]: classify(c,'Grupos',team.id_equipo,'Clasificado')
+        _,rev=self.repo.read();self.repo.transact(rev,lambda s:s.competitions.update(state.competitions))
+        at=self.app()
+        for name in ['Inicio','Clasificados','Eliminatorias','Cuadro','Resultados','Participantes actuales','Historial']:
+            self.page(at,name)
+            self.assertFalse(any(b.label=='Guardar clasificación' for b in at.button))
+        at=self.app(True)
+        for name in ['Configuración','Equipos','Grupos','Eliminatorias','Resultados','Administración']:
+            self.page(at,name)
+        self.page(at,'Eliminatorias')
+        for team in c.teams[:2]:widget(at.selectbox,team.nombre_equipo).set_value('Clasifica')
+        widget(at.button,'Guardar clasificación').click().run()
+        self.assertFalse(at.exception)
+        self.assertEqual(len(self.repo.read()[0].competitions['Sumo'].rounds['Octavos']),2)
+
     def test_wrong_password_cannot_edit(self):
         self.load_tournament()
         at = self.app()

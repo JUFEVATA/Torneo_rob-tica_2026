@@ -15,13 +15,13 @@ En el primer torneo, la fila 5 contiene los controles:
 | **B5** | Equipos inscritos que estarán en competencia |
 | **F5** | Cantidad de bloques / grupos |
 | **J5** | Cupos que clasifican a eliminatorias |
-| **N5** | Casilla **Aplicar cambios** |
+| **N5** | Indicador de actualización automática |
 
-Selecciona las cantidades y marca **N5**. Por ejemplo, **54 equipos y 8 grupos** producen **7/7/7/7/7/7/6/6**. La casilla vuelve a desmarcarse al guardar. Modificar un selector por separado solo deja un borrador; los grupos siguen intactos hasta aplicar.
+Cambia la cantidad directamente. **F5 = 4** genera cuatro bloques; **F5 = 8** genera ocho. No hay casilla adicional. Por ejemplo, 54 equipos y 8 grupos se distribuyen **7/7/7/7/7/7/6/6** al siguiente refresco.
 
 Al reducir el total se mantienen los primeros nombres de la lista y los demás pasan a **Reserva**, conservando sus identificadores. Al aumentarlo se reincorporan primero esos nombres; si hacen falta más, se añaden **Equipo nuevo 1…** para que los renombres en las tarjetas. La hoja interna Reserva está oculta y el administrador puede consultar esos nombres en Equipos. No se borran nombres al reducir la cantidad.
 
-La aplicación solo permite redistribuir con todos los estados en **Pendiente**, antes de las eliminatorias. Cuando ya hay clasificaciones, los controles muestran **Distribución cerrada / Bloqueado** y dejan de ser desplegables; no se borran resultados para habilitarlos. Los grupos quedan equilibrados y se guardan; refrescar no vuelve a repartirlos. Desde **Configuración → Cantidad de equipos y grupos** el administrador dispone de los mismos controles y puede elegir sorteo aleatorio. Para recuperar exactamente una distribución anterior después de aplicar otra, usa un respaldo: aumentar la cantidad restaura nombres, pero calcula grupos de nuevo.
+La cantidad de grupos puede cambiar incluso con clasificaciones: los nombres, estados y rondas se conservan. La cantidad de equipos y los cupos solo pueden cambiar antes de marcar resultados. Al reducir el total por debajo de los cupos, estos se ajustan a la mayor potencia de dos que cabe. La nueva distribución se guarda; refrescar no vuelve a sortear. El administrador dispone de estos controles en Configuración.
 
 Los desplegables ofrecen cantidades habituales; también puedes escribir un entero hasta 4096. Los cupos admitidos son 2, 4, 8, 16, 32 o 64. No pueden superar los equipos inscritos.
 
@@ -29,9 +29,9 @@ Los desplegables ofrecen cantidades habituales; también puedes escribir un ente
 
 1. En Grupos, introduce el listado con el formato del [ejemplo de 85 equipos](examples/sumo2026.txt). Para importar una lista completa, entra a editar **A1** (doble clic) y pega todo el texto dentro de esa única celda. No pegues sobre varias tarjetas. La app lo organiza en tarjetas y añade los desplegables al sincronizar. Conserva el encabezado `Competencia: Sumo` y las secciones `Equipo 1`, `Equipo 2`… También puedes importar desde **Configuración → Importar lista de grupos** como administrador.
 2. El grupo original se conserva: no se vuelve a sortear. Los 85 equipos del ejemplo están repartidos **22 / 21 / 21 / 21**. Todos empiezan Pendiente; se configuran **32 cupos** para dieciseisavos. Nuevas listas usan la mayor potencia de dos posible, hasta 32; el administrador puede modificar los cupos antes de iniciar eliminatorias.
-3. Marca el estado al lado de cada equipo. Al decidir todos los estados y tener exactamente 32 clasificados, se crean los 16 partidos de **16 avos**. Si quedan decisiones pendientes, los grupos continúan abiertos. El administrador también puede iniciar explícitamente el cuadro desde **Clasificados** al completar los cupos.
-4. En cada ronda hay dos filas por partido. Selecciona **Clasifica** para el ganador; su rival pasa automáticamente a **No clasifica**. También puedes señalar al perdedor. No marques a ambos como ganadores o como perdedores.
-5. Al terminar todos los partidos de una ronda, se llena la siguiente: **32 → 16 → 8 → 4 → 2 → campeón**. Las hojas todavía no alcanzadas muestran solo su encabezado.
+3. Marca **Clasifica** junto a cualquier equipo. Aparece en **16 avos** al sincronizar, sin esperar a resolver todos los grupos.
+4. En cada ronda eliges libremente **Clasifica**, **No clasifica** o **Pendiente**. No hay parejas obligatorias ni perdedores automáticos. Cada seleccionado aparece en la siguiente hoja.
+5. Capacidades máximas: grupos → 32, dieciseisavos → 16, octavos → 8, cuartos → 4, semifinal → 2 y final → 1 campeón. Puedes ir completando las selecciones; no necesitas llenar una ronda para ver avanzar sus clasificados.
 6. **Participantes actuales** muestra quienes siguen compitiendo. **Historial** conserva la clasificación de grupos y los resultados por fase; permite filtrar y descargar CSV.
 
 Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. La vista pública consulta los cambios cada 10 segundos; por la caché pueden tardar aproximadamente **10–20 segundos**. **Actualizar datos** fuerza la lectura. No hay un proceso programado que avance el torneo si la aplicación está cerrada o suspendida.
@@ -39,9 +39,9 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 ### Edición y correcciones
 
 - Edita nombres y desplegables en las hojas visibles. No alteres las columnas ocultas de IDs ni las pestañas internas.
-- Durante las eliminatorias, la clasificación de grupos queda cerrada. Para modificarla, un administrador debe reiniciar las eliminatorias con confirmación.
-- Para cambiar un ganador ya guardado, usa **Eliminatorias → Corregir resultado** y confirma. Se anulan los resultados posteriores afectados; las demás ramas se conservan. Si intentaste cambiarlo directamente en Sheets, restaura primero su estado anterior para que la lectura vuelva a ser válida.
-- Una lista incompleta, nombres duplicados, grupos desequilibrados o resultados incompatibles quedan pendientes de revisión. La vista pública conserva los últimos resultados válidos; el administrador ve el motivo. Corrige la hoja antes de guardar otras operaciones: la app no borra las selecciones incompatibles ni guarda una importación parcial.
+- Puedes corregir estados directamente en Sheets o desde la interfaz de administrador. Si retiras una clasificación, ese equipo sale de las fases posteriores y se descartan sus decisiones posteriores; los demás conservan sus resultados.
+- Una ronda que excede los cupos queda pendiente de corrección y conserva las selecciones escritas. El administrador ve el motivo. Las otras rondas y el selector de grupos pueden seguir sincronizándose.
+- Una lista incompleta, nombres duplicados o IDs modificados no sobrescribe el último torneo válido. Corrige la entrada antes de continuar.
 - Para una nueva competencia utiliza un nombre diferente e importa desde Configuración. No borres bloques de otras competencias.
 - Los torneos requieren al menos dos equipos. Los cupos admitidos son 2, 4, 8, 16, 32 o 64, sin pases libres. Con 64 cupos aparece también **32 avos**.
 
@@ -100,7 +100,7 @@ En Streamlit Community Cloud selecciona el repositorio, rama `main`, entrada `ap
 
 ## Persistencia y estructura
 
-Las hojas visibles son entradas editables y vistas de cada ronda. Las hojas ocultas **Configuracion**, **Equipos**, **Reserva**, **Partidos**, **Clasificados** y **Resultados** conservan identidades estables, configuración y resultados. No las elimines. Ocultar una hoja sirve para simplificar la interfaz; no es un control de acceso.
+Las hojas visibles son entradas editables y vistas de cada ronda. Las hojas ocultas **Configuracion**, **Equipos**, **Reserva**, **Partidos**, **Rondas**, **Clasificados** y **Resultados** conservan identidades estables, configuración y resultados. No las elimines. Ocultar una hoja sirve para simplificar la interfaz; no es un control de acceso.
 
 El repositorio lee todas las tablas en un `values_batch_get`, valida las ediciones y escribe los datos relacionados y desplegables en un solo `spreadsheets.batchUpdate`. Antes de guardar compara una huella y vuelve a leer para detectar ediciones simultáneas. No escribe al refrescar si nada cambió. Los nombres se envían como texto, incluso si empiezan por `=`.
 
@@ -108,8 +108,9 @@ Un bloqueo compartido serializa las sesiones del mismo proceso. La API de Sheets
 
 Código principal:
 
-- `core/group_board.py`: tarjetas, borradores de cantidades, distribución y reserva.
+- `core/group_board.py`: tarjetas, controles automáticos de cantidades, distribución y reserva.
 - `core/sheet_flow.py`: importación del boletín, decisiones por hoja, participantes actuales e historial.
+- `core/free_rounds.py`: clasificación libre y propagación por identidad estable.
 - `core/tournament.py` y `core/eliminatorias.py`: validaciones, distribución y avance de rondas.
 - `services/google_sheets.py`: sincronización, escritura por lote y desplegables.
 - `services/runtime.py`: autenticación, caché y manejo de conflictos.

@@ -12,6 +12,7 @@ HEADERS = {
     "Configuracion": ["competencia", "campo", "valor"],
     "Equipos": [f.name for f in fields(Team)],
     "Grupos": ["Sin grupos"],
+    "Rondas": ["competencia", "fase", "id_equipo", "estado"],
     "Reserva": [f.name for f in fields(Team)],
     "Partidos": [f.name for f in fields(Match)] + ["nombre_equipo_1", "nombre_equipo_2", "nombre_ganador"],
     "Clasificados": ["competencia", "fase_destino", "id_equipo", "nombre_equipo", "grupo"],
@@ -89,12 +90,22 @@ def decode(tables: dict) -> State:
         if data["competencia"] not in state.competitions:
             raise ValidationError("Partido de una competencia no configurada.")
         state.competitions[data["competencia"]].matches.append(Match(**data))
+    for row in records(tables.get('Rondas', []),'Rondas'):
+        name=str(row['competencia'])
+        if name not in state.competitions: raise ValidationError('Competencia desconocida en Rondas.')
+        entries=state.competitions[name].rounds.setdefault(str(row['fase']),{})
+        tid=str(row['id_equipo'])
+        if tid in entries: raise ValidationError('Registro duplicado en Rondas.')
+        entries[tid]=str(row['estado'])
     validar_estado(state)
     return state
 
 
 def clasificados_actuales(c: Competition) -> tuple[str, list[str]]:
     from core.eliminatorias import fase_para
+    if c.config.sistema == 'Libre':
+        from core.free_rounds import active
+        return ('Campeón' if c.config.campeon else c.config.fase_actual), list(active(c))
     if not c.matches:
         return fase_para(c.config.cupos_clasificados), [t.id_equipo for t in c.teams if t.clasificado]
     if c.config.campeon:
@@ -114,6 +125,8 @@ def encode(state: State) -> dict[str, list[list]]:
             tables["Configuracion"].append([name, key, value])
         for t in c.teams:
             tables["Equipos"].append(list(asdict(t).values()))
+        for phase,entries in c.rounds.items():
+            for tid,status in entries.items():tables['Rondas'].append([name,phase,tid,status])
         for t in c.reserve:
             tables["Reserva"].append(list(asdict(t).values()))
         if c.config.torneo_iniciado:
@@ -129,6 +142,9 @@ def encode(state: State) -> dict[str, list[list]]:
         for team_id in clasificados:
             t = next(t for t in c.teams if t.id_equipo == team_id)
             tables["Clasificados"].append([name, fase, t.id_equipo, t.nombre_equipo, t.grupo])
+        if c.config.sistema == 'Libre':
+            if c.config.campeon:tables['Resultados'].append([name,1,c.config.campeon,c.name(c.config.campeon)])
+            continue
         if c.config.campeon:
             final = partidos_fase(c, "Final")[0]
             segundo = final.equipo_2 if final.ganador == final.equipo_1 else final.equipo_1

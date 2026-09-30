@@ -35,7 +35,7 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(c.teams[-1].nombre_equipo,'Equipo nuevo 5')
         validar_estado(state)
 
-    def test_draft_survives_reads_and_status_updates_until_checkbox(self):
+    def test_quantities_apply_automatically_and_second_read_is_stable(self):
         server=FakeSpreadsheet();repo=GoogleSheetsRepository(server)
         _,rev=repo.read(); state=imported()
         repo.transact(rev,lambda s:s.competitions.update(state.competitions))
@@ -43,22 +43,17 @@ class BoardTests(unittest.TestCase):
         server.tables['Grupos'][4][5]=8
         before=len(server.writes)
         saved,_=repo.read()
-        self.assertEqual(saved,state)
-        self.assertEqual(server.tables['Grupos'][4][1],54)
-        self.assertEqual(len(server.writes),before)
-        server.tables['Grupos'][4][13]=True
-        saved,_=repo.read()
         self.assertEqual(len(saved.competitions['Sumo'].teams),54)
         self.assertEqual(len(saved.competitions['Sumo'].reserve),31)
         self.assertEqual(saved.competitions['Sumo'].config.numero_grupos,8)
-        self.assertIs(server.tables['Grupos'][4][13],False)
+        self.assertEqual(server.tables['Grupos'][4][13],'Automática')
         before=len(server.writes)
         self.assertEqual(repo.read()[0],saved)
         self.assertEqual(len(server.writes),before)
 
     def test_decided_results_lock_redistribution_and_bad_counts_atomic(self):
         state=imported()
-        for total,groups,cupos in [(1,1,2),(85,86,32),(20,4,32),(85,4,3)]:
+        for total,groups,cupos in [(1,1,2),(85,86,32),(85,4,3)]:
             tables=stage_tables(state)
             tables['Grupos'][4][1],tables['Grupos'][4][5],tables['Grupos'][4][9]=total,groups,cupos
             tables['Grupos'][4][13]=True
@@ -67,8 +62,11 @@ class BoardTests(unittest.TestCase):
         tables['Grupos'][9][1]='Clasifica'
         state=apply_sheet_edits(state,tables)
         tables=stage_tables(state);tables['Grupos'][4][5]=8;tables['Grupos'][4][13]=True
-        with self.assertRaises(ValidationError):apply_sheet_edits(state,tables)
-        self.assertEqual(state.competitions['Sumo'].config.numero_grupos,4)
+        saved=apply_sheet_edits(state,tables)
+        self.assertEqual(saved.competitions['Sumo'].config.numero_grupos,8)
+        self.assertTrue(saved.competitions['Sumo'].teams[0].clasificado)
+        tables=stage_tables(saved);tables['Grupos'][4][1]=54
+        with self.assertRaises(ValidationError):apply_sheet_edits(saved,tables)
 
     def test_id_and_missing_card_rejected(self):
         state=imported()

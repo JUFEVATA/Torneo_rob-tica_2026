@@ -19,6 +19,7 @@ def imported():
     state = State()
     roster = parse_rosters([[EXAMPLE.read_text()]])[0]
     import_roster(state, roster)
+    state.competitions["Sumo"].config.sistema="Enfrentamientos"
     return state
 
 

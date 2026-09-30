@@ -28,15 +28,13 @@ def board_format_requests(sid,rows,height,width,rule_count=0):
     for start,name in sections(rows):
         req.append(fmt(start,start+2,0,2,{'backgroundColor':color('#F3F7F6'),'textFormat':{'bold':True,'fontSize':16,'foregroundColor':color('#173B3D')}}))
         control=start+2
-        locked = value(rows,control,13) == "Bloqueado"
-        for col in (() if locked else (1,5,9)):
+        locked = 'Total y cupos cerrados' in str(value(rows,start+4,0))
+        for col in ((5,) if locked else (1,5,9)):
             options = [2,4,8,16,32,64] if col==9 else list(range(1 if col==5 else 2,33 if col==5 else 101))
             current=value(rows,control,col)
             if isinstance(current,int) and current not in options: options.append(current)
             req.append({'setDataValidation':{'range':area(control,control+1,col,col+1),'rule':{'condition':{'type':'ONE_OF_LIST','values':[{'userEnteredValue':str(n)} for n in sorted(options)]},'strict':False,'showCustomUi':True}}})
             req.append(fmt(control,control+1,col,col+1,{'backgroundColor':color('#FFFFFF'),'textFormat':{'bold':True,'foregroundColor':color('#0087C3')},'horizontalAlignment':'CENTER'}))
-        if not locked:
-            req.append({'setDataValidation':{'range':area(control,control+1,13,14),'rule':{'condition':{'type':'BOOLEAN'},'strict':True,'showCustomUi':True}}})
         req.append(fmt(control,control+1,12,14,{'backgroundColor':color('#9FCF67'),'textFormat':{'bold':True,'foregroundColor':color('#173B3D')}}))
         for r in (start,start+1,start+3,start+4):
             req.append({'mergeCells':{'range':area(r,r+1,0,14 if r==start+4 else 6),'mergeType':'MERGE_ALL'}})

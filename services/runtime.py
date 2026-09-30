@@ -48,6 +48,7 @@ def login(password):
 
 @st.cache_resource
 def get_repository(mode):
+    # Schema v3: rondas libres y configuración automática del tablero.
     if mode == "demo":
         from services.demo import seed
         repo = LocalRepository(Path(__file__).resolve().parents[1] / ".demo" / "torneo.json")
@@ -82,3 +83,17 @@ def execute(mode, revision, operation, message="Cambios guardados."):
     read_state.clear()
     st.session_state.flash = message
     st.rerun()
+
+
+def connection_error(error):
+    """Diagnóstico público limitado: nunca muestra claves ni el contenido de Secrets."""
+    name = type(error).__name__
+    response = getattr(error, 'response', None)
+    code = getattr(response, 'status_code', None)
+    if name in ('RefreshError', 'InvalidValue', 'MalformedError'):
+        return 'Google no aceptó la cuenta de servicio. Revisa gcp_service_account en Secrets. (' + name + ')'
+    if name in ('SpreadsheetNotFound', 'PermissionError') or code in (403, 404):
+        return 'Revisa el ID, la API de Sheets y el permiso de editor de la cuenta de servicio. (' + name + ')'
+    if code == 429:
+        return 'Google limitó temporalmente las solicitudes. Espera un minuto y reintenta.'
+    return 'No fue posible leer el torneo. Pulsa Reintentar conexión. Diagnóstico: ' + name + (f' HTTP {code}' if code else '')

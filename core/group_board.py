@@ -1,4 +1,4 @@
-"""Tablero de tarjetas editable en Google Sheets; cantidades con aplicación explícita."""
+"""Tablero de tarjetas: cantidades sincronizadas al editar los selectores."""
 from copy import deepcopy
 from core.models import Team, ValidationError, new_id
 from core.grupos import distribuir, generar_grupos, nombre_columna
@@ -26,9 +26,9 @@ def board_rows(state):
             continue
         locked = bool(c.matches) or any(t.estado != 'Pendiente' for t in c.teams)
         rows += [[f'Competencia: {name}'],[c.config.titulo],
-                 ['Equipos inscritos',len(c.teams),'','','Bloques / grupos',c.config.numero_grupos,'','','Cupos clasifican',c.config.cupos_clasificados,'','','Distribución cerrada' if locked else 'Aplicar cambios','Bloqueado' if locked else False],
+                 ['Equipos inscritos',len(c.teams),'','','Bloques / grupos',c.config.numero_grupos,'','','Cupos clasifican',c.config.cupos_clasificados,'','','Actualización','Automática'],
                  [f'{len(c.teams)} equipos · {c.config.numero_grupos} grupos · {len(c.reserve)} en reserva · Fase: {c.config.fase_actual}'],
-                 ['Para cambiar cantidades, reinicia la fase de grupos desde Administración.' if locked else 'Modifica las cantidades y marca Aplicar cambios. Redistribución disponible con todos los estados Pendiente.'],[]]
+                 ['Cambia Bloques / grupos: conserva equipos y resultados. Total y cupos cerrados durante la competencia.' if locked else 'Cambia las cantidades: las tarjetas se actualizan al sincronizar. No necesitas marcar una casilla.'],[]]
         for start in range(0,c.config.numero_grupos,CARDS_PER_ROW):
             groups=[nombre_columna(i+1) for i in range(start,min(start+CARDS_PER_ROW,c.config.numero_grupos))]
             members=[[t for t in c.teams if t.grupo==g] for g in groups]
@@ -43,18 +43,8 @@ def board_rows(state):
 
 
 def preserve_drafts(projected, original):
-    """Una lectura no borra selectores que el usuario aún no ha aplicado."""
-    if value(original,0,0)!=MARKER:
-        return projected
-    old=dict((name,index) for index,name in sections(original))
-    for row,name in sections(projected):
-        if name not in old:
-            continue
-        source=old[name]+2
-        if value(original,source,13) not in (False,'FALSE','false') or value(projected,row+2,13) == 'Bloqueado':
-            continue
-        for col in (1,5,9):
-            projected[row+2][col]=value(original,source,col)
+    # Compatibilidad con los llamadores anteriores: ahora las cantidades se aplican
+    # automáticamente y la proyección refleja el último estado validado.
     return projected
 
 
@@ -65,7 +55,12 @@ def resize_groups(c,total,groups,cupos,shuffle=False):
     if total<2 or groups>total or cupos not in (2,4,8,16,32,64) or cupos>total:
         raise ValidationError('Revisa las cantidades: al menos 2 equipos, grupos no superiores al total y cupos de 2, 4, 8, 16, 32 o 64 sin superar el total.')
     if c.matches or any(t.estado!='Pendiente' for t in c.teams):
-        raise ValidationError('Solo puedes redistribuir antes de clasificar. Restablece la fase de grupos como administrador.')
+        if total != len(c.teams) or cupos != c.config.cupos_clasificados:
+            raise ValidationError('Durante la competencia puedes cambiar los grupos. Para cambiar inscritos o cupos, reinicia la fase como administrador.')
+        generar_grupos(c.teams,groups,shuffle)
+        c.config.numero_grupos=groups
+        c.config.equipos_por_grupo=', '.join(map(str,distribuir(total,groups)))
+        return
     all_teams=deepcopy(c.teams+c.reserve)
     names={normalizar(t.nombre_equipo) for t in all_teams}
     index=1
@@ -117,17 +112,17 @@ def parse_board(state,rows):
                     rr+=1
         if groups_seen!={nombre_columna(i+1) for i in range(c.config.numero_grupos)}:
             raise ValidationError('Faltan tarjetas de grupos. No borres sus encabezados ni IDs ocultos.')
-        flag=value(rows,start+2,13)
-        if flag not in (True,False,'TRUE','FALSE','true','false','Bloqueado'):
-            raise ValidationError('Aplicar cambios debe ser una casilla marcada o desmarcada.')
-        if flag in (True,'TRUE','true'):
-            vals=[]
-            for col in (1,5,9):
-                raw=value(rows,start+2,col)
-                try:
-                    n=int(str(raw))
-                except (ValueError,TypeError):
-                    raise ValidationError('Las cantidades deben ser números enteros.') from None
-                vals.append(n)
+        vals=[]
+        for col in (1,5,9):
+            raw=value(rows,start+2,col)
+            try:
+                n=int(str(raw))
+            except (ValueError,TypeError):
+                raise ValidationError('Las cantidades deben ser números enteros.') from None
+            vals.append(n)
+        # Al reducir inscritos antes de iniciar, adapta los cupos si ya no caben.
+        if vals[0] != len(c.teams) and vals[2] == c.config.cupos_clasificados and 2 <= vals[0] < vals[2]:
+            vals[2]=max(n for n in (2,4,8,16,32,64) if n<=vals[0])
+        if vals != [len(c.teams),c.config.numero_grupos,c.config.cupos_clasificados]:
             actions[name]=vals
     return roster_rows,actions

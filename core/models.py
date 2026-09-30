@@ -29,6 +29,7 @@ class Config:
     metodo_grupos: str = "Orden original"
     titulo: str = "Equipo STEM 2026"
     fecha: str = ""
+    sistema: str = "Enfrentamientos"
 
 
 @dataclass
@@ -60,6 +61,7 @@ class Competition:
     teams: list[Team] = field(default_factory=list)
     matches: list[Match] = field(default_factory=list)
     reserve: list[Team] = field(default_factory=list)
+    rounds: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def name(self, team_id: str) -> str:
         return next((t.nombre_equipo for t in self.teams if t.id_equipo == team_id), "Por definir")
@@ -77,5 +79,5 @@ class State:
         return cls({key: Competition(Config(**v["config"]),
                                     [Team(**t) for t in v["teams"]],
                                     [Match(**m) for m in v["matches"]],
-                                    [Team(**t) for t in v.get("reserve", [])])
+                                    [Team(**t) for t in v.get("reserve", [])], v.get("rounds", {}))
                     for key, v in data["competitions"].items()})

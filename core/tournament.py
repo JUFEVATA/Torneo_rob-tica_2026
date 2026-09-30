@@ -16,6 +16,8 @@ def normalizar(nombre: str) -> str:
 def validar_config(config: Config) -> None:
     if not config.competencia.strip() or len(config.competencia) > 100:
         raise ValidationError("La competencia debe tener entre 1 y 100 caracteres.")
+    if config.sistema not in ("Libre", "Enfrentamientos"):
+        raise ValidationError("Sistema de clasificación desconocido.")
     distribuir(config.numero_equipos, config.numero_grupos)
     fase_para(config.cupos_clasificados)
     if config.cupos_clasificados > config.numero_equipos:
@@ -107,6 +109,10 @@ def iniciar_grupos(c: Competition, sorteo: bool = False, genericos: bool = False
 
 
 def clasificar(c: Competition, team_id: str, estado: str) -> None:
+    if c.config.sistema == "Libre":
+        from core.free_rounds import classify
+        classify(c,"Grupos",team_id,estado)
+        return
     if not c.config.torneo_iniciado or c.matches:
         raise ValidationError("La clasificación solo se modifica en la fase de grupos.")
     if estado not in ("Clasificado", "Eliminado", "Pendiente"):
@@ -133,6 +139,10 @@ def clasificar(c: Competition, team_id: str, estado: str) -> None:
 
 
 def iniciar_eliminatorias(c: Competition, sorteo: bool = False) -> None:
+    if c.config.sistema == "Libre":
+        from core.free_rounds import reconcile
+        reconcile(c)
+        return
     if c.matches:
         raise ValidationError("Las eliminatorias ya se generaron.")
     if not c.config.torneo_iniciado:
@@ -149,6 +159,10 @@ def iniciar_eliminatorias(c: Competition, sorteo: bool = False) -> None:
 def reiniciar(c: Competition, alcance: str, confirmar: bool = False) -> None:
     if not confirmar:
         raise ValidationError("El reinicio requiere confirmación.")
+    if c.config.sistema == "Libre":
+        from core.free_rounds import reset
+        reset(c,alcance)
+        return
     if alcance == "Competencia completa":
         c.teams.clear()
         c.reserve.clear()
@@ -220,6 +234,10 @@ def validar_estado(state: State) -> None:
                 raise ValidationError("equipos_por_grupo no coincide con la distribución guardada.")
         elif any(t.grupo or t.estado != "Pendiente" for t in c.teams) or c.matches:
             raise ValidationError("Hay grupos o partidos en un torneo no iniciado.")
+        if c.config.sistema == "Libre":
+            from core.free_rounds import validate
+            validate(c)
+            continue
         for m in c.matches:
             if not m.id_partido or m.id_partido in match_ids or m.competencia != nombre or m.fase not in ORDEN_FASES:
                 raise ValidationError("Partido duplicado o fase/competencia inválida.")

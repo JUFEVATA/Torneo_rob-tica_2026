@@ -3,10 +3,10 @@ import os
 import pandas as pd
 import streamlit as st
 
-from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes
+from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes, rondas_libres
 from components.layout import bracket, champion, group_cards, hero, inject_style, metrics
 from core.models import ValidationError
-from services.runtime import admin_password, is_admin, login, read_state
+from services.runtime import admin_password, is_admin, login, read_state, get_repository, connection_error
 from services.serialization import encode
 from utils.helpers import csv_seguro
 
@@ -44,12 +44,14 @@ with st.sidebar:
         st.info("Revisa los datos manuales en Sheets según README.md y pulsa Actualizar.")
         if st.button("Actualizar"):
             read_state.clear()
+            get_repository.clear()
             st.rerun()
         st.stop()
-    except Exception:
-        st.error("No fue posible leer el torneo. Revisa el ID, las credenciales, la API habilitada y el permiso de editor del Service Account.")
+    except Exception as error:
+        st.error(connection_error(error))
         if st.button("Reintentar conexión"):
             read_state.clear()
+            get_repository.clear()
             st.rerun()
         st.stop()
     options = list(initial_state.competitions)
@@ -98,8 +100,8 @@ def content():
     except ValidationError as error:
         st.error(str(error))
         return
-    except Exception:
-        st.error("No se pudo actualizar Google Sheets. Usa Actualizar datos para volver a intentar.")
+    except Exception as error:
+        st.error(connection_error(error))
         return
     if list(state.competitions) != options:
         st.rerun()  # mantiene actualizado el selector al crear otra competencia
@@ -133,6 +135,8 @@ def content():
         equipos.render(c, mode, revision, editable)
     elif page == "Grupos":
         grupos.render(c, mode, revision, editable)
+    elif c.config.sistema == "Libre" and page in ("Clasificados", "Eliminatorias", "Cuadro"):
+        rondas_libres.render(c, mode, revision, editable)
     elif page == "Clasificados":
         clasificados.render(c, mode, revision, editable)
     elif page == "Eliminatorias":
@@ -143,7 +147,9 @@ def content():
     elif page == "Resultados":
         st.header("Resultados")
         champion(c)
-        if c.matches:
+        if c.config.sistema == "Libre":
+            participantes.historial(c)
+        elif c.matches:
             frame = pd.DataFrame([{"Ronda": m.fase, "Partido": m.numero_partido,
                                    "Equipo 1": c.name(m.equipo_1), "Equipo 2": c.name(m.equipo_2),
                                    "Ganador": c.name(m.ganador) if m.ganador else "", "Estado": m.estado}
