@@ -39,7 +39,7 @@ def force_operation(state, name, action):
 def replace_competition_rows(raw, projected, name, tab):
     if tab == "Podio":
         return [projected[0]] + [r for r in raw[1:] if r and r[0] != name] + [r for r in projected[1:] if r and r[0] == name]
-    header = 2 if tab == "Grupos" else 3 if tab.startswith("SL ") else 2
+    header = next((i for i, row in enumerate(projected) if row and str(row[0]).startswith("Competencia: ")), len(projected)) if tab.startswith("SL ") else 2
     def blocks(rows):
         starts = [i for i, row in enumerate(rows) if row and str(row[0]).startswith("Competencia: ")]
         return [(str(rows[start][0])[13:], rows[start:starts[j+1] if j+1 < len(starts) else len(rows)]) for j, start in enumerate(starts)]

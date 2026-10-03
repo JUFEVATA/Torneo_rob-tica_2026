@@ -8,39 +8,61 @@ def color(hexcode):
 
 
 def line_format_requests(sid, rows, height, width):
-    """Tiempos como texto exacto, decisiones nativas y resultados derivados."""
-    def area(r=0, end=None, col=0, last=10):
-        result = {'sheetId': sid, 'startRowIndex': r, 'startColumnIndex': col, 'endColumnIndex': last}
-        if end is not None: result['endRowIndex'] = end
-        return result
-    def paint(r, end, style):
-        return {'repeatCell': {'range': area(r, end), 'cell': {'userEnteredFormat': style}, 'fields': 'userEnteredFormat'}}
+    """Tres columnas numéricas por intento y mejor tiempo, sin formato horario."""
+    from core import line_racing as race
+    last = race.ID_COL
+    def area(r, end, c=0, col_end=last):
+        return {'sheetId': sid, 'startRowIndex': r, 'endRowIndex': end, 'startColumnIndex': c, 'endColumnIndex': col_end}
+    def paint(r, end, style, c=0, col_end=last, fields='userEnteredFormat'):
+        return {'repeatCell': {'range': area(r, end, c, col_end), 'cell': {'userEnteredFormat': style}, 'fields': fields}}
     def dropdown(r, col, values):
         return {'setDataValidation': {'range': area(r, r+1, col, col+1), 'rule': {'condition': {'type': 'ONE_OF_LIST', 'values': [{'userEnteredValue': str(v)} for v in values]}, 'strict': True, 'showCustomUi': True}}}
     req = [
         {'setDataValidation': {'range': {'sheetId': sid}}},
-        {'updateSheetProperties': {'properties': {'sheetId': sid, 'gridProperties': {'hideGridlines': True, 'frozenRowCount': 3, 'frozenColumnCount': 0}}, 'fields': 'gridProperties(hideGridlines,frozenRowCount,frozenColumnCount)'}},
-        paint(0, height, {'backgroundColor': color('#FFFFFF'), 'textFormat': {'fontFamily': 'Arial', 'fontSize': 11, 'foregroundColor': color('#173B3D')}, 'verticalAlignment': 'MIDDLE', 'wrapStrategy': 'WRAP'}),
-        {'repeatCell': {'range': area(3, height, 1, 4), 'cell': {'userEnteredFormat': {'numberFormat': {'type': 'TEXT'}}}, 'fields': 'userEnteredFormat.numberFormat'}},
-        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 0, 'endIndex': height}, 'properties': {'pixelSize': 36}, 'fields': 'pixelSize'}},
-        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'COLUMNS', 'startIndex': 10, 'endIndex': width}, 'properties': {'hiddenByUser': True}, 'fields': 'hiddenByUser'}},
+        {'updateBorders': {'range': area(0, height, 0, width), **{side: {'style': 'NONE'} for side in ('top', 'bottom', 'left', 'right', 'innerHorizontal', 'innerVertical')}}},
+        {'updateSheetProperties': {'properties': {'sheetId': sid, 'gridProperties': {'hideGridlines': True, 'frozenRowCount': race.HEADER_ROWS, 'frozenColumnCount': 0}}, 'fields': 'gridProperties(hideGridlines,frozenRowCount,frozenColumnCount)'}},
+        paint(0, height, {'backgroundColor': color('#FFFFFF'), 'textFormat': {'fontFamily': 'Arial', 'fontSize': 11, 'foregroundColor': color('#173B3D')}, 'verticalAlignment': 'MIDDLE', 'wrapStrategy': 'WRAP'}, col_end=width),
+        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 0, 'endIndex': height}, 'properties': {'pixelSize': 38}, 'fields': 'pixelSize'}},
+        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'COLUMNS', 'startIndex': last, 'endIndex': width}, 'properties': {'hiddenByUser': True}, 'fields': 'hiddenByUser'}},
     ]
-    for col, pixels in enumerate([255, 115, 115, 115, 70, 145, 135, 120, 65, 175]):
+    widths = [50, 65, 250] + [55, 55, 65]*4 + [125]*3 + [65, 140, 100, 65, 160]
+    for col, pixels in enumerate(widths):
         req.append({'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'COLUMNS', 'startIndex': col, 'endIndex': col+1}, 'properties': {'pixelSize': pixels, 'hiddenByUser': False}, 'fields': 'pixelSize,hiddenByUser'}})
-    req.append(paint(2, 3, {'backgroundColor': color('#0D9648'), 'textFormat': {'bold': True, 'foregroundColor': color('#FFFFFF')}, 'wrapStrategy': 'WRAP'}))
-    req.append({'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 2, 'endIndex': 3}, 'properties': {'pixelSize': 48}, 'fields': 'pixelSize'}})
-    note = 'Reglamento 02/09/2026: máximo dos integrantes y un robot por equipo. Tres intentos por fase; se toma el menor tiempo válido de hasta 90 s. Tres fallos nuevos por fase; el juez registra sanciones por pérdida de línea o intervención. Reparación previa: 1 min; tolerancia de presentación: 1 min; espera de salida: 2 s. Esas esperas no se suman al recorrido. Avanzan 16 → 8 → 4; los tres mejores de la final definen el podio. El juez decide sanciones y desempates. Cierra la fase cuando se completen los intentos o la decisión del juez. No edites los resultados calculados ni las columnas ocultas.'
+    req.append(paint(2, 4, {'backgroundColor': color('#E1F1EA'), 'textFormat': {'bold': True, 'foregroundColor': color('#173B3D')}, 'horizontalAlignment': 'CENTER', 'verticalAlignment': 'MIDDLE', 'wrapStrategy': 'WRAP'}))
+    palette = ['#E0EFF8', '#E3F3E9', '#FFF4D9', '#EDF2F7']
+    for start, tint in zip([*race.ATTEMPT_COLS, race.BEST_COL], palette):
+        req.append({'mergeCells': {'range': area(2, 3, start, start+3), 'mergeType': 'MERGE_ALL'}})
+        req.append(paint(2, height, {'backgroundColor': color(tint)}, start, start+3, 'userEnteredFormat.backgroundColor'))
+        for offset, pattern in enumerate(['00', '00', '000']):
+            req.append(paint(4, height, {'numberFormat': {'type': 'NUMBER', 'pattern': pattern}, 'horizontalAlignment': 'CENTER'}, start+offset, start+offset+1, 'userEnteredFormat(numberFormat,horizontalAlignment)'))
+    for col in [0, 1, 2, *range(15, last)]:
+        req.append({'mergeCells': {'range': area(2, 4, col, col+1), 'mergeType': 'MERGE_ALL'}})
+    note = 'Tres intentos por fase; menor tiempo válido hasta 90 s. Tres fallos nuevos por fase. Avanzan 16 → 8 → 4; los tres mejores de la final definen el podio. Completa MM, SS y MS con enteros, incluidos ceros. Para un intento sin recorrido, selecciona su resultado. El mejor tiempo, puesto y estado se calculan automáticamente. No edites las columnas ocultas.'
     req.append({'repeatCell': {'range': area(1, 2, 0, 1), 'cell': {'note': note}, 'fields': 'note'}})
+    border = {'style': 'SOLID', 'color': color('#CEDFD8')}
+    req.append({'updateBorders': {'range': area(2, height), 'top': border, 'bottom': border, 'left': border, 'right': border, 'innerHorizontal': border, 'innerVertical': border}})
     for r, row in enumerate(rows):
         if r in (0, 1) or row and str(row[0]).startswith('Competencia: '):
             req.append({'mergeCells': {'range': area(r, r+1), 'mergeType': 'MERGE_ALL'}})
-            req.append(paint(r, r+1, {'backgroundColor': color('#F3F7F6'), 'textFormat': {'fontSize': 15 if r != 1 else 11, 'bold': r != 1, 'foregroundColor': color('#0D9648')}}))
+            req.append(paint(r, r+1, {'backgroundColor': color('#E1F1EA') if r == 0 else color('#F3F7F6'), 'textFormat': {'fontSize': 18 if r == 0 else 13 if r != 1 else 11, 'bold': r != 1, 'foregroundColor': color('#173B3D')}, 'verticalAlignment': 'MIDDLE', 'wrapStrategy': 'WRAP'}))
+            req.append({'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': r, 'endIndex': r+1}, 'properties': {'pixelSize': 44 if r == 0 else 38}, 'fields': 'pixelSize'}})
         elif row and row[0] == 'Estado de fase':
-            req.append(dropdown(r, 1, ['Abierta', 'Cerrada']))
-        elif len(row) > 10 and row[10] and row[10] != 'id_equipo':
-            req.extend([dropdown(r, 4, range(4)), dropdown(r, 5, ['Sin sanción', 'No presentó', 'Descalificado'])])
-            req.append({'setDataValidation': {'range': area(r, r+1, 6, 7), 'rule': {'condition': {'type': 'NUMBER_BETWEEN', 'values': [{'userEnteredValue': '0'}, {'userEnteredValue': '4096'}]}, 'strict': True}}})
-            req.append({'repeatCell': {'range': area(r, r+1, 7, 10), 'cell': {'userEnteredFormat': {'backgroundColor': color('#E6F4DE'), 'textFormat': {'bold': True, 'foregroundColor': color('#173B3D')}}}, 'fields': 'userEnteredFormat(backgroundColor,textFormat)'}})
+            req.append({'mergeCells': {'range': area(r, r+1, 0, 3), 'mergeType': 'MERGE_ALL'}})
+            req.append({'mergeCells': {'range': area(r, r+1, 3, 6), 'mergeType': 'MERGE_ALL'}})
+            req.append(dropdown(r, 3, ['Abierta', 'Cerrada']))
+            req.append(paint(r, r+1, {'backgroundColor': color('#FFFFFF')}, 0, last, 'userEnteredFormat.backgroundColor'))
+        elif r >= race.HEADER_ROWS and len(row) > race.ID_COL and row[race.ID_COL] and row[race.ID_COL] != 'id_equipo':
+            for start in race.ATTEMPT_COLS:
+                for offset, limit in enumerate([59, 59, 999]):
+                    col = start+offset
+                    a1 = chr(65+col) + str(r+1)
+                    formula = '=OR(ISBLANK(' + a1 + '),AND(ISNUMBER(' + a1 + '),' + a1 + '=INT(' + a1 + '),' + a1 + '>=0,' + a1 + '<=' + str(limit) + '))'
+                    req.append({'setDataValidation': {'range': area(r, r+1, col, col+1), 'rule': {'condition': {'type': 'CUSTOM_FORMULA', 'values': [{'userEnteredValue': formula}]}, 'strict': True, 'inputMessage': 'Número entero; MM y SS: 0–59. MS: 0–999.'}}})
+            req.extend(dropdown(r, col, race.OUTCOMES) for col in race.OUTCOME_COLS)
+            req.extend([dropdown(r, race.FAULT_COL, range(4)), dropdown(r, race.SANCTION_COL, race.SANCTIONS)])
+            req.append({'setDataValidation': {'range': area(r, r+1, race.TIE_COL, race.TIE_COL+1), 'rule': {'condition': {'type': 'NUMBER_BETWEEN', 'values': [{'userEnteredValue': '0'}, {'userEnteredValue': '4096'}]}, 'strict': True}}})
+            req.append(paint(r, r+1, {'backgroundColor': color('#FFF8E5')}, 15, 21, 'userEnteredFormat.backgroundColor'))
+            req.append(paint(r, r+1, {'textFormat': {'bold': True, 'foregroundColor': color('#173B3D')}}, race.BEST_COL, race.BEST_COL+3, 'userEnteredFormat.textFormat'))
     return req
 
 

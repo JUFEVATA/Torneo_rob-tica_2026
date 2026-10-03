@@ -115,27 +115,28 @@ class RacingTests(unittest.TestCase):
     def test_sheet_time_edit_and_close_updates_next_sheet(self):
         state,c=line_state(4);tables=stage_tables(state)
         for i,row in enumerate(tables['SL Fase 1']):
-            if len(row)>10 and row[10]!='id_equipo':row[1:4]=[f'00:3{i}.001','No terminó','No terminó']
-            if row and row[0]=='Estado de fase':row[1]='Cerrada'
+            if len(row)>race.ID_COL and row[race.ID_COL]!='id_equipo':
+                row[3:6]=[0,30+i,1];row[15:18]=['Tiempo','No terminó','No terminó']
+            if row and row[0]=='Estado de fase':row[3]='Cerrada'
         updated=apply_sheet_edits(state,tables)
         self.assertEqual(len(updated.competitions[c.config.competencia].rounds['Linea2']),4)
-        self.assertEqual(len(stage_tables(updated)['SL Fase 2']),9)
+        self.assertEqual(len(stage_tables(updated)['SL Fase 2']),10)
 
     def test_invalid_time_preserved_other_tabs_still_editable(self):
         state,c=line_state(4);server=FakeSpreadsheet();repo=GoogleSheetsRepository(server)
         _,rev=repo.read();repo.transact(rev,lambda s:s.competitions.update(state.competitions))
-        server.tables['SL Fase 1'][5][1]='bad time'
+        server.tables['SL Fase 1'][6][3]='bad time'
         current,rev=repo.read();self.assertIn('SL Fase 1',current.sync_issues)
         repo.transact(rev,lambda s:setattr(s.competitions[c.config.competencia].config,'numero_participantes',8))
-        self.assertEqual(server.tables['SL Fase 1'][5][1],'bad time')
+        self.assertEqual(server.tables['SL Fase 1'][6][3],'bad time')
         self.assertEqual(repo.read()[0].competitions[c.config.competencia].config.numero_participantes,8)
 
     def test_closed_first_phase_sheet_correction_ignores_stale_later_rows(self):
         state,c=line_state()
         for p in race.PHASES:finish_phase(c,p)
         tables=stage_tables(state);newly=c.teams[-1].id_equipo
-        row=next(r for r in tables['SL Fase 1'] if len(r)>10 and r[10]==newly)
-        row[1]='00:10.001'
+        row=next(r for r in tables['SL Fase 1'] if len(r)>race.ID_COL and r[race.ID_COL]==newly)
+        row[3:6]=[0,10,1]
         updated=apply_sheet_edits(state,tables)
         self.assertEqual(updated.competitions[c.config.competencia].closed_phases,['Linea1'])
         validar_estado(updated)
@@ -163,9 +164,64 @@ class RacingTests(unittest.TestCase):
     def test_native_time_formats_and_dropdowns(self):
         from services.sheet_style import line_format_requests
         state,_=line_state(4);rows=stage_tables(state)['SL Fase 1']
-        req=line_format_requests(99,rows,len(rows),20)
-        self.assertTrue(any(r.get('repeatCell',{}).get('cell',{}).get('userEnteredFormat',{}).get('numberFormat',{}).get('type')=='TEXT' for r in req))
+        req=line_format_requests(99,rows,len(rows),25)
+        self.assertTrue(any(r.get('repeatCell',{}).get('cell',{}).get('userEnteredFormat',{}).get('numberFormat',{}).get('type')=='NUMBER' for r in req))
         self.assertTrue(any(r.get('setDataValidation',{}).get('rule',{}).get('condition',{}).get('values')==[{'userEnteredValue':'Abierta'},{'userEnteredValue':'Cerrada'}] for r in req))
+
+
+    def test_split_times_round_trip_exact_and_best_derived(self):
+        state,c=line_state(2);tid=c.teams[0].id_equipo
+        race.set_record(c,'Linea1',tid,{'intentos':['01:02.345','00:59.009','No terminó'],'fallos':1,'sancion':'Sin sanción','desempate':3})
+        tables=stage_tables(state)
+        row=next(r for r in tables['SL Fase 1'] if len(r)>race.ID_COL and r[race.ID_COL]==tid)
+        self.assertEqual(row[3:12],[1,2,345,0,59,9,'','',''])
+        self.assertEqual(row[12:15],[0,59,9])
+        self.assertEqual(apply_sheet_edits(state,tables),state)
+        row[12:15]=[59,59,999]  # A manually changed derived best must not alter scores.
+        updated=apply_sheet_edits(state,tables)
+        self.assertEqual(updated,state)
+        self.assertEqual(stage_tables(updated)['SL Fase 1'][6][12:15],[0,59,9])
+
+    def test_split_input_requires_three_integers_and_preserves_zeros(self):
+        self.assertEqual(race.attempt_from_cells([0,12,345],'Pendiente'),'00:12.345')
+        self.assertEqual(race.attempt_from_cells([1,0,0],'Tiempo'),'01:00.000')
+        self.assertEqual(race.attempt_from_cells(['','',''],'Tiempo'),'')
+        self.assertEqual(race.attempt_from_cells([0,12,345],'No terminó'),'No terminó')
+        for parts in ([0,12,''],[0,60,1],[0,1,1000],[0,1,1.5],[-1,0,0],[0,0,0],[True,1,0],['=1',2,3]):
+            with self.assertRaises(ValidationError):race.attempt_from_cells(parts,'Tiempo')
+
+    def test_legacy_sheet_migration_preserves_attempts_and_closed_phases(self):
+        state,c=line_state(4);finish_phase(c,'Linea1')
+        tables=stage_tables(state)
+        for phase in race.PHASES:
+            rows=[['SEGUIDOR DE LÍNEA'],['Formato anterior'],list(race.LEGACY_HEADER)]
+            rows += [['Competencia: '+c.config.competencia],['Estado de fase','Cerrada' if phase in c.closed_phases else 'Abierta']]
+            scores={r['id']:r for r in race.standings(c,phase)}
+            for tid in c.rounds.get(phase,{}):
+                rec=c.timing[phase][tid];r=scores[tid]
+                rows.append([c.name(tid),*rec['intentos'],rec['fallos'],rec['sancion'],rec['desempate'],r['Mejor tiempo'],r['Puesto'],r['Estado'],tid,c.config.competencia])
+            tables[race.SHEETS[phase]]=rows
+        self.assertEqual(apply_sheet_edits(state,tables),state)
+        server=FakeSpreadsheet();repo=GoogleSheetsRepository(server)
+        _,rev=repo.read();repo.transact(rev,lambda s:s.competitions.update(state.competitions))
+        server.tables.update(tables)
+        migrated,_=repo.read()
+        self.assertEqual(migrated,state)
+        self.assertEqual(server.tables['SL Fase 1'][3],race.HEADER)
+        self.assertFalse(getattr(migrated,'sync_issues',{}))
+
+    def test_forced_reset_under_split_headers_preserves_another_competition(self):
+        from core.recovery import recover_tables
+        state,c=line_state(4);finish_phase(c,'Linea1')
+        crear_competencia(state,Config('Otra línea',4,1,cupos_clasificados=4,sistema='Tiempos'))
+        other=state.competitions['Otra línea'];iniciar_grupos(other,genericos=True);finish_phase(other,'Linea1')
+        original=encode(state);original.update(stage_tables(state))
+        original['SL Fase 1'][6][3]='invalid draft'
+        recovered,_=recover_tables(original,c.config.competencia,'Reiniciar resultados')
+        self.assertEqual(recovered.competitions['Otra línea'],other)
+        self.assertFalse(getattr(recovered,'sync_issues',{}))
+        self.assertTrue(recovered.recovery_backups)
+        self.assertFalse(recovered.competitions[c.config.competencia].closed_phases)
 
 
 if __name__ == '__main__':unittest.main()

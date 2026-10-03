@@ -15,9 +15,11 @@ def phase_card(c, phase):
     items = []
     for row in rows:
         badge = "ok" if row["Estado"] in ("Clasifica", "Podio") else "out" if row["Estado"].startswith(("No clasifica", "Descalificado")) else ""
-        detail = (str(row["Puesto"]) + '.º · ' + row["Mejor tiempo"]) if row["Puesto"] != "—" else "Por registrar" if row["Estado"] == "Pendiente" else "Sin tiempo válido"
+        detail = str(row["Puesto"]) + '.º puesto' if row["Puesto"] != "—" else "Por registrar" if row["Estado"] == "Pendiente" else "Sin tiempo válido"
+        parts = racing.time_parts(row["Mejor tiempo"])
+        time_html = '<div class="race-time">' + ''.join('<span><small>' + label + '</small><b>' + (str(part).zfill(digits) if part != "" else '—') + '</b></span>' for label, part, digits in zip(['Minutos', 'Segundos', 'Milisegundos'], parts, [2, 2, 3])) + '</div>' if row["Mejor tiempo"] != "—" else ""
         items.append('<div class="team-row"><div><strong>' + escape(row["Equipo"]) + '</strong><div class="race-detail">' +
-                     escape(detail) + '</div></div><span class="badge ' + badge + '">' + escape(row["Estado"]) + '</span></div>')
+                     escape(detail) + '</div>' + time_html + '</div><span class="badge ' + badge + '">' + escape(row["Estado"]) + '</span></div>')
     st.markdown('<div class="group-card phase-card"><div class="group-head">' + escape(racing.LABELS[phase]) +
                 '<span class="group-count">' + str(len(rows)) + ' equipos · ' + ('Cerrada' if phase in c.closed_phases else 'En curso') +
                 '</span></div><div class="phase-columns">' + ''.join(items) + '</div></div>', unsafe_allow_html=True)
@@ -88,7 +90,13 @@ def history(c):
         current = {r["id"]: r for r in racing.standings(c, phase)}
         for tid, record in c.timing.get(phase, {}).items():
             result = current.get(tid, {})
-            rows.append({"Fase": racing.LABELS[phase], "Equipo": c.name(tid), **{f"Intento {i+1}": t or "Pendiente" for i, t in enumerate(record["intentos"])}, "Fallos": record["fallos"], "Sanción": record["sancion"], "Mejor tiempo": result.get("Mejor tiempo", "—"), "Resultado": result.get("Estado", "Fuera de la selección actual")})
+            entry = {"Fase": racing.LABELS[phase], "Equipo": c.name(tid)}
+            for i, attempt in enumerate(record["intentos"], 1):
+                entry.update({f"Intento {i} · {unit}": part for unit, part in zip(['Minutos', 'Segundos', 'Milisegundos'], racing.time_parts(attempt))})
+                entry[f"Resultado intento {i}"] = attempt if attempt in racing.FAILED else "Tiempo" if attempt else "Pendiente"
+            entry.update({"Mejor tiempo · " + unit: part for unit, part in zip(['Minutos', 'Segundos', 'Milisegundos'], racing.time_parts(result.get("Mejor tiempo", "—")))})
+            entry.update({"Fallos": record["fallos"], "Sanción": record["sancion"], "Resultado": result.get("Estado", "Fuera de la selección actual")})
+            rows.append(entry)
     frame = pd.DataFrame(rows)
     st.dataframe(frame, hide_index=True, width="stretch")
     st.download_button("Descargar historial CSV", csv_seguro(frame), "historial-linea.csv", "text/csv")

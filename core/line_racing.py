@@ -9,7 +9,15 @@ SHEETS = dict(zip(PHASES, ["SL Fase 1", "SL Fase 2", "SL Fase 3", "SL Final"]))
 CAPACITIES = dict(zip(PHASES, [16, 8, 4, 3]))
 FAILED = ("Fallo", "No terminó", "No presentó")
 SANCTIONS = ("Sin sanción", "No presentó", "Descalificado")
-HEADER = ["Equipo", "Intento 1", "Intento 2", "Intento 3", "Fallos", "Sanción", "Desempate del juez", "Mejor tiempo", "Puesto", "Resultado", "id_equipo", "competencia"]
+LEGACY_HEADER = ["Equipo", "Intento 1", "Intento 2", "Intento 3", "Fallos", "Sanción", "Desempate del juez", "Mejor tiempo", "Puesto", "Resultado", "id_equipo", "competencia"]
+ATTEMPT_COLS = (3, 6, 9)
+BEST_COL = 12
+OUTCOME_COLS = (15, 16, 17)
+FAULT_COL, SANCTION_COL, TIE_COL, PLACE_COL, RESULT_COL, ID_COL, COMP_COL = range(18, 25)
+HEADER_ROWS = 4
+OUTCOMES = ("Pendiente", "Tiempo", *FAILED)
+HEADER = ["", "", "", *(["MM", "SS", "MS"] * 4), *([""] * 8), "id_equipo", "competencia"]
+GROUP_HEADER = ["N.º", "Grupo", "Equipo", "INTENTO 1", "", "", "INTENTO 2", "", "", "INTENTO 3", "", "", "MEJOR TIEMPO", "", "", "Resultado intento 1", "Resultado intento 2", "Resultado intento 3", "Fallos", "Sanción", "Orden empate", "Puesto", "Estado", "id_equipo", "competencia"]
 
 
 def milliseconds(minutes, seconds, millis):
@@ -202,15 +210,43 @@ def reset(c, scope):
     reconcile(c)
 
 
+def time_parts(value):
+    """Componentes numéricos; nunca horas del día ni fracciones de fecha."""
+    ms = None if value == "—" else parse_time(value)
+    return [ms // 60000, ms // 1000 % 60, ms % 1000] if ms is not None else ["", "", ""]
+
+
+def attempt_from_cells(parts, outcome):
+    if outcome not in OUTCOMES:
+        raise ValidationError("Selecciona un resultado válido para cada intento.")
+    if outcome in FAILED:
+        return outcome
+    if all(v == "" or v is None for v in parts):
+        return ""
+    if any(v == "" or v is None for v in parts):
+        raise ValidationError("Completa las tres columnas del intento: minutos, segundos y milisegundos, incluidos los ceros.")
+    values = []
+    for v in parts:
+        if isinstance(v, bool) or not re.fullmatch(r"\d+", str(v).strip()) and not (isinstance(v, float) and v.is_integer()):
+            raise ValidationError("Minutos, segundos y milisegundos deben ser números enteros.")
+        values.append(int(v))
+    value = format_time(milliseconds(*values))
+    parse_time(value)  # Cero no representa un recorrido válido.
+    return value
+
+
 def sheet_rows(state, phase):
-    rows = [["SEGUIDOR DE LÍNEA · " + LABELS[phase]], ["Tres intentos · mm:ss.mmm · máximo 01:30.000 · menor tiempo válido · tres fallos nuevos por fase"], list(HEADER)]
+    rows = [["SEGUIDOR DE LÍNEA · " + LABELS[phase]], ["MM = minutos · SS = segundos · MS = milisegundos. Completa las tres casillas, incluidos los ceros; déjalas vacías si no hay tiempo. Límite: 01 | 30 | 000."], list(GROUP_HEADER), list(HEADER)]
     for name, c in state.competitions.items():
         if c.config.sistema != "Tiempos": continue
-        rows += [["Competencia: " + name], ["Estado de fase", "Cerrada" if phase in c.closed_phases else "Abierta"]]
+        rows += [["Competencia: " + name], ["Estado de fase", "", "", "Cerrada" if phase in c.closed_phases else "Abierta"]]
         ranking = {row["id"]: row for row in standings(c, phase)}
-        for tid in c.rounds.get(phase, {}):
+        for number, tid in enumerate(c.rounds.get(phase, {}), 1):
             record, result = c.timing[phase][tid], ranking[tid]
-            rows.append([c.name(tid), *record["intentos"], record["fallos"], record["sancion"], record["desempate"], result["Mejor tiempo"], result["Puesto"], result["Estado"], tid, name])
+            team = next(t for t in c.teams if t.id_equipo == tid)
+            outcomes = [v if v in FAILED else "Tiempo" if v else "Pendiente" for v in record["intentos"]]
+            parts = [part for attempt in record["intentos"] for part in time_parts(attempt)]
+            rows.append([number, team.grupo, c.name(tid), *parts, *time_parts(result["Mejor tiempo"]), *outcomes, record["fallos"], record["sancion"], record["desempate"], result["Puesto"], result["Estado"], tid, name])
     return rows
 
 
@@ -218,27 +254,35 @@ def apply_sheet_phase(updated, previous, rows, phase):
     from services.serialization import entero
     found, controls = {}, {}
     section = None
+    split = len(rows) > 3 and rows[3] == HEADER
+    id_col, comp_col = (ID_COL, COMP_COL) if split else (10, 11)
     for row in rows:
         if row and str(row[0]).startswith("Competencia: "):
             section = str(row[0])[13:]
             if section not in previous.competitions or previous.competitions[section].config.sistema != "Tiempos":
                 raise ValidationError("No cambies los encabezados de competencia en las hojas de tiempos.")
         elif row and row[0] == "Estado de fase" and section:
-            value = row[1] if len(row) > 1 else ""
+            control_col = 3 if split else 1
+            value = row[control_col] if len(row) > control_col else ""
             if value not in ("Abierta", "Cerrada") or section in controls:
                 raise ValidationError("Estado de fase inválido o duplicado.")
             controls[section] = value
-        elif len(row) > 10 and row[10] and row[10] != "id_equipo":
-            row = row + [""] * max(0, 12-len(row))
-            name, tid = str(row[11]), str(row[10])
+        elif section and len(row) > id_col and row[id_col] and row[id_col] != "id_equipo":
+            row = row + [""] * max(0, comp_col+1-len(row))
+            name, tid = str(row[comp_col]), str(row[id_col])
             if name != section or name not in previous.competitions or tid not in previous.competitions[name].rounds.get(phase, {}) or (name, tid) in found:
                 raise ValidationError("Registro de tiempo duplicado o ID modificado.")
-            record = {"intentos": [str(row[i] or "").strip() for i in (1, 2, 3)], "fallos": entero(row[4] or 0), "sancion": str(row[5]), "desempate": entero(row[6] or 0)}
+            if split:
+                attempts = [attempt_from_cells(row[col:col+3], str(row[out])) for col, out in zip(ATTEMPT_COLS, OUTCOME_COLS)]
+                record = {"intentos": attempts, "fallos": entero(row[FAULT_COL] or 0), "sancion": str(row[SANCTION_COL]), "desempate": entero(row[TIE_COL] or 0)}
+            else:
+                # Compatibilidad con las hojas anteriores durante la migración.
+                record = {"intentos": [str(row[i] or "").strip() for i in (1, 2, 3)], "fallos": entero(row[4] or 0), "sancion": str(row[5]), "desempate": entero(row[6] or 0)}
             validate_record(record)
             found[name, tid] = record
     expected = {(name, tid) for name, c in previous.competitions.items() if c.config.sistema == "Tiempos" for tid in c.rounds.get(phase, {})}
     # Encabezados recién creados, sin participantes: se generan al sincronizar.
-    if rows and len(rows) <= 3 and not found: return
+    if rows and len(rows) <= (HEADER_ROWS if split else 3) and not found: return
     if set(found) != expected:
         raise ValidationError("Faltan equipos de tiempos. No borres filas ni las columnas ocultas.")
     for name, c in updated.competitions.items():

@@ -1,6 +1,6 @@
 # Verificación · 2 octubre 2026
 
-108 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+112 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -42,3 +42,13 @@ Verificaciones de recuperación y seguidor de línea:
 - Acceso de administrador y recuperación desde el error inicial comprobados con AppTest.
 - Interfaz de tiempos captura minutos, segundos y milisegundos y todas sus páginas públicas carecen de CSV.
 - Reducir el número de equipos de seguidor de línea por debajo de 16 adapta la configuración interna y conserva los nombres restantes en Reserva; no exige modificar los cupos del reglamento.
+
+Verificación de columnas de tiempo separadas:
+
+- Cada intento y mejor tiempo tienen MM, SS y MS numéricos. Los ceros y milisegundos se conservan exactamente.
+- Encabezados agrupados y colores distintos por intento; N.º, Grupo y Equipo identifican cada fila.
+- Las tres casillas vacías representan un intento pendiente; un tiempo requiere las tres casillas completas. Rangos inválidos, fracciones y fórmulas se rechazan sin borrar la entrada para corregirla.
+- La migración incorpora hojas anteriores sin cambiar los tiempos, intentos no completados o fases cerradas.
+- Los cambios al mejor tiempo calculado no modifican los intentos ni la clasificación.
+- Reinicio forzado con la nueva estructura conserva otras competencias.
+- La vista pública del mejor tiempo y el historial administrativo presentan minutos, segundos y milisegundos separados.
