@@ -15,7 +15,7 @@ def phase_card(c, phase):
     items = []
     for row in rows:
         badge = "ok" if row["Estado"] in ("Clasifica", "Podio") else "out" if row["Estado"].startswith(("No clasifica", "Descalificado")) else ""
-        detail = (str(row["Puesto"]) + '.º · ' + row["Mejor tiempo"]) if row["Puesto"] != "—" else "Sin tiempo válido"
+        detail = (str(row["Puesto"]) + '.º · ' + row["Mejor tiempo"]) if row["Puesto"] != "—" else "Por registrar" if row["Estado"] == "Pendiente" else "Sin tiempo válido"
         items.append('<div class="team-row"><div><strong>' + escape(row["Equipo"]) + '</strong><div class="race-detail">' +
                      escape(detail) + '</div></div><span class="badge ' + badge + '">' + escape(row["Estado"]) + '</span></div>')
     st.markdown('<div class="group-card phase-card"><div class="group-head">' + escape(racing.LABELS[phase]) +
@@ -44,7 +44,8 @@ def render(c, mode, revision):
         st.info("Completa los equipos y genera los grupos desde Configuración para iniciar.")
         return
     phase = st.selectbox("Fase a registrar", phases, index=len(phases)-1, format_func=racing.LABELS.get)
-    phase_card(c, phase)
+    with st.expander("Consultar clasificación de esta fase"):
+        phase_card(c, phase)
     ids = list(c.rounds[phase])
     tid = st.selectbox("Equipo a cronometrar", ids, format_func=c.name)
     record = c.timing[phase][tid]
