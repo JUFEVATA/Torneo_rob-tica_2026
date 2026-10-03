@@ -15,7 +15,7 @@ from core.models import ConflictError, ValidationError
 from core.tournament import validar_estado
 from core.sheet_flow import STAGE_TABS, STATES, stage_tables, apply_sheet_edits, normalized_rows
 from services.serialization import HEADERS, TABS, decode, encode, fingerprint
-from core.line_racing import SHEETS as LINE_SHEETS
+from core.line_racing import SHEETS as LINE_SHEETS, HEADER_ROWS as LINE_HEADER_ROWS
 
 MANAGED_TABS = list(TABS) + STAGE_TABS + list(LINE_SHEETS.values())
 _LOCK = RLock()
@@ -96,7 +96,14 @@ class GoogleSheetsRepository:
             for tab in getattr(updated, "sync_issues", {}):
                 projections[tab] = tables[tab]
             preserve_drafts(projections["Grupos"], tables.get("Grupos", []))
-            needs_sync = updated != state or any(
+            # Un despliegue en caliente puede haber escrito los valores nuevos
+            # con un formateador anterior aún en memoria. Termina la migración
+            # también cuando solo falta el encabezado nativo de cuatro filas.
+            styles_pending = any(
+                tab not in getattr(updated, "sync_issues", {}) and
+                self.properties[tab]["gridProperties"].get("frozenRowCount", 0) != LINE_HEADER_ROWS
+                for tab in LINE_SHEETS.values())
+            needs_sync = updated != state or styles_pending or any(
                 normalized_rows(tables.get(tab, [])) != normalized_rows(rows)
                 for tab, rows in projections.items())
             if needs_sync:

@@ -224,4 +224,20 @@ class RacingTests(unittest.TestCase):
         self.assertFalse(recovered.competitions[c.config.competencia].closed_phases)
 
 
+
+    def test_migration_finishes_native_header_even_when_values_already_match(self):
+        state,_=line_state(2);server=FakeSpreadsheet();repo=GoogleSheetsRepository(server)
+        _,rev=repo.read();repo.transact(rev,lambda s:s.competitions.update(state.competitions))
+        server.props['SL Fase 1']['gridProperties']['frozenRowCount']=3
+        fresh=GoogleSheetsRepository(server);current,_=fresh.read()
+        self.assertEqual(current,state)
+        self.assertEqual(server.props['SL Fase 1']['gridProperties']['frozenRowCount'],4)
+        writes=len(server.writes);fresh.read();self.assertEqual(len(server.writes),writes)
+
+    def test_native_formatter_preserves_invalid_legacy_draft(self):
+        from services.sheet_style import line_format_requests
+        legacy=[['Title'],['Rules'],race.LEGACY_HEADER,['Competencia: Línea'],['Estado de fase','Abierta'],['A','bad time']]
+        self.assertEqual(line_format_requests(1,legacy,6,25),[])
+
+
 if __name__ == '__main__':unittest.main()

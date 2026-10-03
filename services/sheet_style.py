@@ -10,6 +10,8 @@ def color(hexcode):
 def line_format_requests(sid, rows, height, width):
     """Tres columnas numéricas por intento y mejor tiempo, sin formato horario."""
     from core import line_racing as race
+    if len(rows) < race.HEADER_ROWS or rows[3] != race.HEADER:
+        return []  # Conserva borradores del formato anterior sin combinar sus celdas.
     last = race.ID_COL
     def area(r, end, c=0, col_end=last):
         return {'sheetId': sid, 'startRowIndex': r, 'endRowIndex': end, 'startColumnIndex': c, 'endColumnIndex': col_end}

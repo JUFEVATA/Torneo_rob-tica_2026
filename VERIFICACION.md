@@ -1,6 +1,6 @@
 # Verificación · 2 octubre 2026
 
-112 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+114 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
