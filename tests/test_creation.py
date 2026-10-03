@@ -46,6 +46,18 @@ class CreationTests(unittest.TestCase):
         self.assertTrue(any(r.get('repeatCell',{}).get('cell',{}).get('userEnteredFormat',{}).get('numberFormat',{}).get('pattern')=='000' for r in requests))
         self.assertEqual(repo.read()[0],state)
 
+    def test_delete_one_timed_competition_preserves_other_timed_sheet_and_backup(self):
+        state = State()
+        crear_competencia_lista(state, Config('Línea A', 4, 2, cupos_clasificados=4, sistema='Tiempos'))
+        crear_competencia_lista(state, Config('Línea B', 4, 2, cupos_clasificados=4, sistema='Tiempos'))
+        raw = encode(state); raw.update(stage_tables(state))
+        recovered, safe = recover_tables(raw, 'Línea A', 'Eliminar')
+        self.assertNotIn('Línea A', recovered.competitions)
+        self.assertIn('Línea B', recovered.competitions)
+        self.assertTrue(any(row and row[0] == 'Competencia: Línea B' for row in safe['SL Fase 1']))
+        self.assertTrue(recovered.recovery_backups)
+        self.assertEqual(recovered.archived[next(iter(recovered.archived))].config.competencia, 'Línea A')
+
     def test_unified_recovery_restarts_current_phase_with_backup(self):
         state=State();crear_competencia_lista(state,Config('Línea',4,2,cupos_clasificados=4,sistema='Tiempos'))
         c=state.competitions['Línea'];finish_phase(c,'Linea1')

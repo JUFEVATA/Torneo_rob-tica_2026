@@ -20,6 +20,16 @@ HEADER = ["", "", "", *(["MM", "SS", "MS"] * 4), *([""] * 8), "id_equipo", "comp
 GROUP_HEADER = ["N.º", "Grupo", "Equipo", "INTENTO 1", "", "", "INTENTO 2", "", "", "INTENTO 3", "", "", "MEJOR TIEMPO", "", "", "Resultado intento 1", "Resultado intento 2", "Resultado intento 3", "Fallos", "Sanción", "Orden empate", "Puesto", "Estado", "id_equipo", "competencia"]
 
 
+def capacities(c):
+    """Cantidad de clasificados después de cada fase de tiempos."""
+    first = 32 if getattr(c.config, "cupos_clasificados", 16) >= 32 else 16
+    return dict(zip(PHASES, [first, first // 2, first // 4, 4 if first == 32 else 3]))
+
+
+def capacity(c, phase):
+    return capacities(c)[phase]
+
+
 def milliseconds(minutes, seconds, millis):
     if any(type(v) is not int for v in (minutes, seconds, millis)) or not 0 <= minutes <= 59 or not 0 <= seconds < 60 or not 0 <= millis < 1000:
         raise ValidationError("Usa minutos de 0 a 59, segundos de 0 a 59 y milisegundos de 0 a 999.")
@@ -83,11 +93,11 @@ def rank(c, phase, incoming=None):
 def closing_error(c, phase, incoming):
     for tid in incoming:
         record = c.timing[phase][tid]
-        finished = record["sancion"] != "Sin sanción" or faults(c, phase, tid) >= 3 or all(str(t).strip() for t in record["intentos"])
+        finished = record["sancion"] != "Sin sanción" or faults(c, phase, tid) >= 3 or any(str(t).strip() for t in record["intentos"])
         if not finished:
             return f"Faltan intentos o la decisión del juez para {c.name(tid)}."
     ranking = rank(c, phase, incoming)
-    cap = CAPACITIES[phase]
+    cap = capacity(c, phase)
     for time in {best(c, phase, tid) for tid in ranking}:
         group = [tid for tid in ranking if best(c, phase, tid) == time]
         first = ranking.index(group[0])
@@ -126,7 +136,7 @@ def reconcile(c):
         rounds[phase] = {tid: "Eliminado" if faults(c, phase, tid) >= 3 or records[tid]["sancion"] != "Sin sanción" else "Pendiente" for tid in incoming}
         if phase not in old_closed or closing_error(c, phase, incoming):
             break
-        winners = rank(c, phase, incoming)[:CAPACITIES[phase]]
+        winners = rank(c, phase, incoming)[:capacity(c, phase)]
         rounds[phase] = {tid: "Clasificado" if tid in winners else "Eliminado" for tid in incoming}
         closed.append(phase)
         incoming = winners
@@ -236,7 +246,7 @@ def attempt_from_cells(parts, outcome):
 
 
 def sheet_rows(state, phase):
-    rows = [["SEGUIDOR DE LÍNEA · " + LABELS[phase]], ["MM = minutos · SS = segundos · MS = milisegundos. Completa las tres casillas, incluidos los ceros; déjalas vacías si no hay tiempo. Límite: 01 | 30 | 000."], list(GROUP_HEADER), list(HEADER)]
+    rows = [["SEGUIDOR DE LÍNEA · " + LABELS[phase]], ["MM = minutos · SS = segundos · MS = milisegundos. Registra los intentos disponibles, incluidos los ceros; deja vacíos los que no se realicen. Límite: 01 | 30 | 000."], list(GROUP_HEADER), list(HEADER)]
     for name, c in state.competitions.items():
         if c.config.sistema != "Tiempos": continue
         rows += [["Competencia: " + name], ["Estado de fase", "", "", "Cerrada" if phase in c.closed_phases else "Abierta"]]

@@ -11,7 +11,7 @@ def render_recovery(mode, default=None):
     if not names:
         return
     with st.expander("Eliminar o reiniciar competencia"):
-        st.caption("Funciona aunque una hoja contenga entradas inválidas. Guarda un respaldo antes de retirar el torneo o reiniciarlo; conserva las otras competencias.")
+        st.caption("Funciona aunque una hoja contenga entradas inválidas. Eliminar retira solo esa competencia de las hojas visibles y guarda una copia completa en Papelera; las demás competencias se conservan.")
         with st.form("force_recovery"):
             name = st.selectbox("Competencia que se modificará", names, index=names.index(default) if default in names else 0)
             action = st.selectbox("Acción", ["Reiniciar resultados", "Reiniciar fase actual", "Reiniciar eliminatorias", "Reiniciar competencia", "Eliminar"])

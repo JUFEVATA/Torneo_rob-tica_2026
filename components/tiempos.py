@@ -18,8 +18,9 @@ def phase_card(c, phase):
         detail = str(row["Puesto"]) + '.º puesto' if row["Puesto"] != "—" else "Por registrar" if row["Estado"] == "Pendiente" else "Sin tiempo válido"
         parts = racing.time_parts(row["Mejor tiempo"])
         time_html = '<div class="race-time">' + ''.join('<span><small>' + label + '</small><b>' + (str(part).zfill(digits) if part != "" else '—') + '</b></span>' for label, part, digits in zip(['Minutos', 'Segundos', 'Milisegundos'], parts, [2, 2, 3])) + '</div>' if row["Mejor tiempo"] != "—" else ""
-        items.append('<div class="team-row"><div><strong>' + escape(row["Equipo"]) + '</strong><div class="race-detail">' +
-                     escape(detail) + '</div>' + time_html + '</div><span class="badge ' + badge + '">' + escape(row["Estado"]) + '</span></div>')
+        items.append('<div class="team-row"><div class="race-team-content"><div class="race-team-head"><strong>' +
+                     escape(row["Equipo"]) + '</strong><span class="badge ' + badge + '">' + escape(row["Estado"]) +
+                     '</span></div><div class="race-detail">' + escape(detail) + '</div>' + time_html + '</div></div>')
     st.markdown('<div class="group-card phase-card"><div class="group-head">' + escape(racing.LABELS[phase]) +
                 '<span class="group-count">' + str(len(rows)) + ' equipos · ' + ('Cerrada' if phase in c.closed_phases else 'En curso') +
                 '</span></div><div class="phase-columns">' + ''.join(items) + '</div></div>', unsafe_allow_html=True)
@@ -73,7 +74,7 @@ def render(c, mode, revision):
             updated = {"intentos": attempts, "fallos": faults, "sancion": sanction, "desempate": order}
             execute(mode, revision, lambda s: racing.set_record(s.competitions[c.config.competencia], phase, tid, updated), "Tiempos guardados; clasificación recalculada.")
     with st.form("race_close_" + phase):
-        st.write("Avanzan los " + str(racing.CAPACITIES[phase]) + " mejores tiempos válidos." if phase != "Linea4" else "Los tres mejores tiempos válidos definen el podio.")
+        st.write("Avanzan los " + str(racing.capacity(c, phase)) + " mejores tiempos válidos." if phase != "Linea4" else "Los tres mejores tiempos válidos definen el podio.")
         confirm = st.checkbox("Confirmo que los tiempos de esta fase son definitivos")
         if st.form_submit_button("Cerrar fase y clasificar", type="primary", disabled=phase in c.closed_phases):
             def close(state):

@@ -1,6 +1,6 @@
 # Verificación · 2 octubre 2026
 
-120 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+123 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -33,7 +33,7 @@ Verificaciones de recuperación y seguidor de línea:
 
 - Recorrido por tiempos de 32 → 16 → 8 → 4 → podio; precisión de milisegundos, mejor intento y límite de 90 segundos.
 - Tres fallos nuevos por fase, descalificación por tres fallos, ausencia y decisiones del juez.
-- Cierre con los tres intentos registrados o decisión del juez; empates que afectan cupos/podio exigen desempate explícito.
+- Cierre con uno o más intentos registrados o decisión del juez; los intentos restantes pueden quedar vacíos y los empates que afectan cupos/podio exigen desempate explícito.
 - Corrección en fase 1 tras cerrar la final reabre la fase afectada, preserva los tiempos de los participantes que permanecen y limpia el campeón antiguo.
 - Entrada y cierre desde las hojas de tiempos actualizan la siguiente fase; las proyecciones antiguas no deshacen una corrección anterior.
 - Corrección de grupos y ganadores en torneos por parejas después de la final conserva las ramas no afectadas.
@@ -42,6 +42,8 @@ Verificaciones de recuperación y seguidor de línea:
 - Acceso de administrador y recuperación desde el error inicial comprobados con AppTest.
 - Interfaz de tiempos captura minutos, segundos y milisegundos y todas sus páginas públicas carecen de CSV.
 - Reducir el número de equipos de seguidor de línea por debajo de 16 adapta la configuración interna y conserva los nombres restantes en Reserva; no exige modificar los cupos del reglamento.
+- Selección de 16 o 32 clasificados en la primera fase; con 32 la ruta se adapta a 32 → 16 → 8 → 4 → podio.
+- Eliminar una competencia de tiempos conserva la otra competencia y el respaldo completo en Papelera.
 
 Verificación de columnas de tiempo separadas:
 

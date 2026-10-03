@@ -13,7 +13,7 @@ def render(c, mode, revision, admin):
     if not admin or not c.config.torneo_iniciado:
         return
     if c.config.sistema == "Tiempos":
-        st.info("Estos grupos organizan la inscripción. Registra los tres intentos en Registro de tiempos para clasificar.")
+        st.info("Estos grupos organizan la inscripción. Registra hasta tres intentos en Registro de tiempos para clasificar.")
         return
     st.subheader("Registrar clasificación")
     group = st.selectbox("Grupo", [nombre_columna(i+1) for i in range(c.config.numero_grupos)], format_func=lambda g: f"Grupo {g}")

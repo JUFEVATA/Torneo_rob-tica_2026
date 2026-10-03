@@ -52,8 +52,8 @@ def resize_groups(c,total,groups,cupos,shuffle=False):
     for label,n in [('Equipos',total),('Grupos',groups),('Cupos',cupos)]:
         if type(n) is not int or not 1<=n<=4096:
             raise ValidationError(f'{label}: escribe un entero entre 1 y 4096.')
-    if c.config.sistema == 'Tiempos' and total >= 2:
-        cupos = min(16, max(n for n in (2,4,8,16,32,64) if n <= total))
+    if c.config.sistema == 'Tiempos' and total >= 2 and cupos > total:
+        cupos = max(n for n in (2,4,8,16,32,64) if n <= total)
     if total<2 or groups>total or cupos not in (2,4,8,16,32,64) or cupos>total:
         raise ValidationError('Revisa las cantidades: al menos 2 equipos, grupos no superiores al total y cupos de 2, 4, 8, 16, 32 o 64 sin superar el total.')
     if c.matches or any(t.estado!='Pendiente' for t in c.teams):

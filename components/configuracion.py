@@ -5,6 +5,11 @@ from core.tournament import configurar, crear_competencia_lista, iniciar_grupos
 from services.runtime import execute
 
 
+def timed_quota_choices(total):
+    choices = [n for n in (16, 32) if n <= total]
+    return choices or [max(n for n in (2, 4, 8, 16, 32) if n <= total)]
+
+
 def create_form(state, mode, revision):
     with st.expander("Crear una competencia", expanded=not state.competitions):
         kind = st.selectbox("Tipo de competencia", ["Selecciona el tipo", "Seguidor de línea por tiempos", "Clasificación libre"], key="new_competition_kind")
@@ -19,12 +24,15 @@ def create_form(state, mode, revision):
             total = left.number_input("Cantidad total de equipos", 2, 4096, 32)
             groups = right.number_input("Cantidad de grupos", 1, 4096, 4)
             participants = left.number_input("Cantidad total de participantes", min_value=0, value=0)
-            qualified = 16 if timed else right.selectbox("Equipos que avanzan", [2, 4, 8, 16, 32, 64], index=3)
+            if timed:
+                choices = timed_quota_choices(total)
+                qualified = right.selectbox("Clasificados a la siguiente fase", choices, index=choices.index(16) if 16 in choices else 0)
+            else:
+                qualified = right.selectbox("Equipos que avanzan", [2, 4, 8, 16, 32, 64], index=3)
             names = st.text_area("Equipos (uno por línea, opcional)", placeholder="Escribe los nombres o déjalo vacío para usar Equipo 1, Equipo 2…")
             st.caption("Los espacios sin nombre se completan con equipos editables. Al crear, los grupos quedan listos.")
             if st.form_submit_button("Crear competencia y grupos", type="primary"):
-                cap = min(16, max(n for n in (2, 4, 8, 16, 32, 64) if n <= total)) if timed else qualified
-                cfg = Config(name, total, groups, participants, cap, sistema="Tiempos" if timed else "Libre")
+                cfg = Config(name, total, groups, participants, qualified, sistema="Tiempos" if timed else "Libre")
                 execute(mode, revision, lambda s: crear_competencia_lista(s, cfg, [n.strip() for n in names.splitlines() if n.strip()]),
                         "Competencia creada con equipos, grupos y hojas de resultados listas.", select_competition=name)
 
@@ -40,14 +48,23 @@ def render(state, c, mode, revision, admin):
     cfg = c.config
     st.subheader(cfg.competencia)
     timed = cfg.sistema == "Tiempos"
-    st.caption("Seguidor de línea por tiempos · 16 → 8 → 4 → podio · tres intentos y tres fallos nuevos por fase." if timed else "Clasificación libre" if cfg.sistema == "Libre" else "Enfrentamientos")
+    if timed:
+        route = "32 → 16 → 8 → 4 → podio" if cfg.cupos_clasificados >= 32 else "16 → 8 → 4 → podio"
+        st.caption(f"Seguidor de línea por tiempos · {route} · tres fallos nuevos por fase.")
+    else:
+        st.caption("Clasificación libre" if cfg.sistema == "Libre" else "Enfrentamientos")
     with st.form("competition_settings_" + cfg.competencia):
         a, b = st.columns(2)
         locked = bool(c.matches or any(t.estado != "Pendiente" for t in c.teams) or c.closed_phases or any(any(r["intentos"]) or r["fallos"] or r["sancion"] != "Sin sanción" for phase in c.timing.values() for r in phase.values()))
         total = a.number_input("Cantidad de equipos", 2, 4096, cfg.numero_equipos, disabled=locked)
         groups = b.number_input("Cantidad de grupos", 1, 4096, cfg.numero_grupos)
         participants = a.number_input("Total esperado de participantes", min_value=0, value=cfg.numero_participantes)
-        cupos = cfg.cupos_clasificados if timed else b.selectbox("Equipos que avanzan", [2,4,8,16,32,64], index=[2,4,8,16,32,64].index(cfg.cupos_clasificados), disabled=locked)
+        if timed:
+            choices = timed_quota_choices(total)
+            current = cfg.cupos_clasificados if cfg.cupos_clasificados in choices else choices[0]
+            cupos = b.selectbox("Clasificados a la siguiente fase", choices, index=choices.index(current), disabled=locked)
+        else:
+            cupos = b.selectbox("Equipos que avanzan", [2,4,8,16,32,64], index=[2,4,8,16,32,64].index(cfg.cupos_clasificados), disabled=locked)
         method = st.selectbox("Distribución", ["Orden original", "Sorteo aleatorio"], index=int(cfg.metodo_grupos == "Sorteo aleatorio"))
         if c.reserve:
             st.caption(f"{len(c.reserve)} equipos en reserva; se recuperan al aumentar el total.")

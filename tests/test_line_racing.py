@@ -10,9 +10,10 @@ from services.google_sheets import GoogleSheetsRepository
 from tests.test_persistence import FakeSpreadsheet
 
 
-def line_state(total=32):
+def line_state(total=32, quota=None):
     state = State()
-    crear_competencia(state, Config("Seguidor de línea", total, 1, cupos_clasificados=min(16, max(n for n in (2,4,8,16,32) if n <= total)), sistema="Tiempos"))
+    quota = quota if quota is not None else min(16, max(n for n in (2,4,8,16,32) if n <= total))
+    crear_competencia(state, Config("Seguidor de línea", total, 1, cupos_clasificados=quota, sistema="Tiempos"))
     c = state.competitions["Seguidor de línea"]
     iniciar_grupos(c, genericos=True)
     return state, c
@@ -79,10 +80,24 @@ class RacingTests(unittest.TestCase):
         self.assertFalse(race.rank(c, "Linea1"))
         self.assertFalse(c.config.campeon)
 
-    def test_cannot_close_with_pending_attempts(self):
+    def test_can_close_with_one_attempt_and_pending_remaining(self):
         _, c = line_state(2)
         race.set_record(c, "Linea1", c.teams[0].id_equipo, {**race.blank_record(), "intentos": ["00:30.000", "", ""]})
+        race.set_record(c, "Linea1", c.teams[1].id_equipo, {**race.blank_record(), "intentos": ["00:31.000", "", ""]})
+        race.close_phase(c, "Linea1")
+        self.assertEqual(len(c.rounds["Linea2"]), 2)
+
+    def test_cannot_close_without_any_time_or_judge_decision(self):
+        _, c = line_state(2)
         with self.assertRaisesRegex(ValidationError, "Faltan"): race.close_phase(c, "Linea1")
+
+    def test_thirty_two_quota_uses_adaptive_route(self):
+        state, c = line_state(32, 32)
+        for phase, expected in zip(race.PHASES, [32, 32, 16, 8]):
+            self.assertEqual(len(c.rounds[phase]), expected)
+            finish_phase(c, phase)
+        self.assertEqual(sum(status == "Clasificado" for status in c.rounds["Linea4"].values()), 4)
+        validar_estado(state)
 
     def test_cutoff_tie_requires_judge_order(self):
         _, c = line_state(18)
