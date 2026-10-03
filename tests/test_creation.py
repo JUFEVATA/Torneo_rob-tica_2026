@@ -6,6 +6,7 @@ from core.publication import archive
 from core.recovery import recover_tables
 from core import line_racing as race
 from core.sheet_flow import stage_tables
+from core.sheet_flow import Roster, import_roster
 from services.serialization import encode
 from services.google_sheets import GoogleSheetsRepository
 from tests.test_persistence import FakeSpreadsheet
@@ -61,6 +62,18 @@ class CreationTests(unittest.TestCase):
                 r.get('updateSheetProperties', {}).get('properties', {}).get('sheetId') == server.props[tab]['sheetId']
                 and r['updateSheetProperties']['properties'].get('hidden') is False
                 for r in server.writes[-1]['requests']))
+
+    def test_explicit_timed_import_repairs_existing_free_competition(self):
+        state = State()
+        crear_competencia_lista(state, Config('Seguidor de Linea', 4, 2, cupos_clasificados=4, sistema='Libre'))
+        roster = Roster('Seguidor de Linea', groups=2, entries=[
+            ('Equipo 1', 'A', 'Pendiente', ''), ('Equipo 2', 'A', 'Pendiente', ''),
+            ('Equipo 3', 'B', 'Pendiente', ''), ('Equipo 4', 'B', 'Pendiente', ''),
+        ])
+        import_roster(state, roster, sistema='Tiempos')
+        c = state.competitions['Seguidor de Linea']
+        self.assertEqual(c.config.sistema, 'Tiempos')
+        self.assertEqual(len(c.timing['Linea1']), 4)
 
     def test_delete_one_timed_competition_preserves_other_timed_sheet_and_backup(self):
         state = State()

@@ -143,7 +143,11 @@ def import_roster(state: State, roster: Roster, replace=False, sistema=None) -> 
     # Una importación nueva no tiene metadatos suficientes para inferir el
     # sistema. El formulario puede indicarlo explícitamente; para preservar el
     # comportamiento anterior seguimos usando clasificación libre por defecto.
-    config.sistema = existing.config.sistema if existing else (sistema or "Libre")
+    # Cuando el formulario recibe el tipo de forma explícita, también permite
+    # reparar una competencia existente que se creó con el sistema equivocado.
+    # Las sincronizaciones internas llaman sin `sistema` y conservan el valor
+    # persistido para no cambiarlo al leer la hoja Grupos.
+    config.sistema = (sistema if sistema is not None else existing.config.sistema) if existing else (sistema or "Libre")
     candidate = Competition(config, teams)
     if existing:
         for key in ("etapa_publica", "puesto_1", "puesto_2", "puesto_3"):
