@@ -4,7 +4,7 @@ Competencia: Sumo
 Fecha: 29/09/2026 08:01:16 -0500
 Participantes: 85 | Grupos: 4
 
-Equipo 1
+Grupo A
 • Fast and fusrious
 • Hercules
 • Fire Stars
@@ -28,7 +28,7 @@ Equipo 1
 • SparkMinds
 • Innobot comercialistas
 
-Equipo 2
+Grupo B
 • SALLE BOT X
 • Los olimpicos
 • Si prende funciona (Tralalero tralala)
@@ -51,7 +51,7 @@ Equipo 2
 • Los titanes del Sumo
 • LOGOBOT
 
-Equipo 3
+Grupo C
 • DB Robotics
 • Robomakers Campestre
 • Los jóvenes titanes en acción
@@ -74,7 +74,7 @@ Equipo 3
 • Luna solar
 • Adidas
 
-Equipo 4
+Grupo D
 • Innovators
 • RoboTicmal
 • Dígale a él que lo ponga
