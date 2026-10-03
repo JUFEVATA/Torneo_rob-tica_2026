@@ -46,6 +46,22 @@ class CreationTests(unittest.TestCase):
         self.assertTrue(any(r.get('repeatCell',{}).get('cell',{}).get('userEnteredFormat',{}).get('numberFormat',{}).get('pattern')=='000' for r in requests))
         self.assertEqual(repo.read()[0],state)
 
+    def test_structural_line_tabs_survive_delete_without_timed_competitions(self):
+        server = FakeSpreadsheet(); repo = GoogleSheetsRepository(server)
+        _, rev = repo.read()
+        _, rev = repo.transact(rev, lambda s: crear_competencia_lista(
+            s, Config('Línea', 4, 2, cupos_clasificados=4, sistema='Tiempos')))
+        _, rev = repo.transact(rev, lambda s: archive(s, 'Línea'))
+        # El borrado limpia las filas del torneo, pero no elimina ni oculta la
+        # plantilla de hojas que se reutilizará en la próxima creación.
+        for tab in race.SHEETS.values():
+            self.assertIn(tab, server.props)
+            self.assertEqual(len(server.tables[tab]), 4)
+            self.assertTrue(any(
+                r.get('updateSheetProperties', {}).get('properties', {}).get('sheetId') == server.props[tab]['sheetId']
+                and r['updateSheetProperties']['properties'].get('hidden') is False
+                for r in server.writes[-1]['requests']))
+
     def test_delete_one_timed_competition_preserves_other_timed_sheet_and_backup(self):
         state = State()
         crear_competencia_lista(state, Config('Línea A', 4, 2, cupos_clasificados=4, sistema='Tiempos'))

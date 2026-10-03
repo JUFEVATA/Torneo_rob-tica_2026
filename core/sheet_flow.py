@@ -120,7 +120,7 @@ def parse_rosters(rows: list[list]) -> list[Roster]:
     return result
 
 
-def import_roster(state: State, roster: Roster, replace=False) -> None:
+def import_roster(state: State, roster: Roster, replace=False, sistema=None) -> None:
     existing = state.competitions.get(roster.name)
     previous = {normalizar(t.nombre_equipo): t for t in existing.teams + existing.reserve} if existing else {}
     previous_ids = {t.id_equipo: t for t in existing.teams + existing.reserve} if existing else {}
@@ -140,7 +140,10 @@ def import_roster(state: State, roster: Roster, replace=False) -> None:
                     fase_actual='Grupos', torneo_iniciado=True,
                     equipos_por_grupo=', '.join(map(str, distribuir(len(teams), roster.groups))),
                     metodo_grupos='Listado importado', titulo=roster.title, fecha=roster.date)
-    config.sistema = existing.config.sistema if existing else "Libre"
+    # Una importación nueva no tiene metadatos suficientes para inferir el
+    # sistema. El formulario puede indicarlo explícitamente; para preservar el
+    # comportamiento anterior seguimos usando clasificación libre por defecto.
+    config.sistema = existing.config.sistema if existing else (sistema or "Libre")
     candidate = Competition(config, teams)
     if existing:
         for key in ("etapa_publica", "puesto_1", "puesto_2", "puesto_3"):

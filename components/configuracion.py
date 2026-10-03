@@ -89,6 +89,11 @@ def render(state, c, mode, revision, admin):
 def import_form(mode, revision):
     with st.expander("Importar una lista con grupos ya asignados"):
         with st.form("import_groups"):
+            kind = st.selectbox(
+                "Tipo de competencia de la lista",
+                ["Clasificación libre", "Seguidor de línea por tiempos"],
+                help="Selecciona tiempos para que se regeneren las cuatro hojas SL Fase.",
+            )
             text = st.text_area("Lista completa", height=250, placeholder="Competencia: Sumo\nParticipantes: 8 | Grupos: 2\nGrupo A\n• Nombre del equipo")
             if st.form_submit_button("Importar grupos"):
                 from core.sheet_flow import parse_rosters, import_roster
@@ -98,5 +103,5 @@ def import_form(mode, revision):
                     if not rosters:
                         raise ValidationError("Pega el listado con su encabezado Competencia:.")
                     for roster in rosters:
-                        import_roster(s, roster)
+                        import_roster(s, roster, sistema="Tiempos" if kind == "Seguidor de línea por tiempos" else "Libre")
                 execute(mode, revision, operation, "Lista importada con su distribución original.")

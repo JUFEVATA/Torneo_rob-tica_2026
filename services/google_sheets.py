@@ -18,6 +18,10 @@ from services.serialization import HEADERS, TABS, decode, encode, fingerprint
 from core.line_racing import SHEETS as LINE_SHEETS, HEADER_ROWS as LINE_HEADER_ROWS
 
 MANAGED_TABS = list(TABS) + STAGE_TABS + list(LINE_SHEETS.values())
+# Las hojas de tiempos forman parte de la plantilla del libro. Se mantienen
+# visibles aunque no haya una competencia de seguidor de línea activa: eliminar
+# una competencia nunca debe parecer que eliminó las pestañas del Excel.
+STRUCTURAL_VISIBLE_TABS = {'Grupos', 'Podio', *STAGE_TABS, *LINE_SHEETS.values()}
 _LOCK = RLock()
 
 
@@ -61,7 +65,7 @@ class GoogleSheetsRepository:
                         next_id += 1
                     used.add(next_id)
                     props = {"sheetId": next_id, "title": tab,
-                             "hidden": tab not in ["Grupos", "Podio", *STAGE_TABS] or tab == "32 avos",
+                             "hidden": tab not in STRUCTURAL_VISIBLE_TABS or tab == "32 avos",
                              "gridProperties": {"rowCount": 100, "columnCount": 20,
                                                 "frozenRowCount": 2 if tab == "Grupos" else 1}}
                     self.properties[tab] = props
@@ -103,7 +107,10 @@ class GoogleSheetsRepository:
                 tab not in getattr(updated, "sync_issues", {}) and
                 self.properties[tab]["gridProperties"].get("frozenRowCount", 0) != LINE_HEADER_ROWS
                 for tab in LINE_SHEETS.values())
-            needs_sync = updated != state or styles_pending or any(
+            visibility_pending = any(
+                self.properties[tab].get("hidden", False)
+                for tab in LINE_SHEETS.values())
+            needs_sync = updated != state or styles_pending or visibility_pending or any(
                 normalized_rows(tables.get(tab, [])) != normalized_rows(rows)
                 for tab, rows in projections.items())
             if needs_sync:
@@ -157,7 +164,10 @@ class GoogleSheetsRepository:
         for tab, rows in updated.items():
             props = self.properties[tab]
             sheet_id = props["sheetId"]
-            visible = tab in ('Grupos', 'Podio') or tab in STAGE_TABS or (tab in LINE_SHEETS.values() and any(c.config.sistema == 'Tiempos' for c in state.competitions.values()))
+            # Las pestañas estructurales permanecen visibles y reutilizables.
+            # El contenido se vacía al eliminar una competencia, pero la hoja
+            # y su formato siguen existiendo para la siguiente creación.
+            visible = tab in STRUCTURAL_VISIBLE_TABS
             hidden = not visible or (tab == '32 avos' and not any(c.config.cupos_clasificados == 64 for c in state.competitions.values()))
             requests.append({"updateSheetProperties": {"properties": {"sheetId": sheet_id, "hidden": hidden}, "fields": "hidden"}})
             old = original.get(tab, [])
