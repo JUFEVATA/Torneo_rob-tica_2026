@@ -13,7 +13,10 @@ def home(c):
     st.markdown(f'<div class="hero{" stage-hero" if is_round else ""}"><span class="tag">{escape(c.config.titulo)}</span><h1>{escape(c.config.competencia)}</h1><p>Etapa actual · {escape(LABELS[phase])}</p></div>', unsafe_allow_html=True)
     if not is_round:
         st.header(LABELS[phase])
-    if phase == "Grupos":
+    if c.config.sistema == "Tiempos" and phase.startswith("Linea"):
+        from components.tiempos import phase_card
+        phase_card(c, phase)
+    elif phase == "Grupos":
         group_cards(c)
     elif phase == "Inscripción":
         st.info(f"{len(c.teams)} equipos inscritos. La competencia todavía no ha iniciado.")
@@ -35,6 +38,10 @@ def home(c):
 
 def render_tree(c):
     st.header("Fases")
+    if c.config.sistema == "Tiempos":
+        from components.tiempos import phases_view
+        phases_view(c)
+        return
     phases = tree_phases(c)
     stage = shown_stage(c)
     context_index = max(0, len(phases)-3)

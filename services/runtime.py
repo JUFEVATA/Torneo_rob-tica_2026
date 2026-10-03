@@ -48,7 +48,7 @@ def login(password):
 
 @st.cache_resource
 def get_repository(mode):
-    # Schema v5: hoja Podio visible con selección de equipos sincronizada.
+    # Schema v6: tiempos de seguidor de línea y recuperación con respaldo.
     if mode == "demo":
         from services.demo import seed
         repo = LocalRepository(Path(__file__).resolve().parents[1] / ".demo" / "torneo.json")
@@ -77,12 +77,15 @@ def read_state(mode):
 read_state.clear = _read_data.clear
 
 
-def execute(mode, revision, operation, message="Cambios guardados."):
+def execute(mode, revision, operation, message="Cambios guardados.", recovery=None):
     if not is_admin():
         st.error("Inicia sesión como administrador para modificar el torneo.")
         return
     try:
-        get_repository(mode).transact(revision, operation)
+        if recovery:
+            get_repository(mode).recover(revision, *recovery)
+        else:
+            get_repository(mode).transact(revision, operation)
     except ConflictError as error:
         read_state.clear()
         st.session_state.flash_error = str(error)

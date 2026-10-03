@@ -10,13 +10,14 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from core.group_board import preserve_drafts
-from services.sheet_style import board_format_requests, podium_format_requests
+from services.sheet_style import board_format_requests, podium_format_requests, line_format_requests
 from core.models import ConflictError, ValidationError
 from core.tournament import validar_estado
 from core.sheet_flow import STAGE_TABS, STATES, stage_tables, apply_sheet_edits, normalized_rows
 from services.serialization import HEADERS, TABS, decode, encode, fingerprint
+from core.line_racing import SHEETS as LINE_SHEETS
 
-MANAGED_TABS = list(TABS) + STAGE_TABS
+MANAGED_TABS = list(TABS) + STAGE_TABS + list(LINE_SHEETS.values())
 _LOCK = RLock()
 
 
@@ -113,26 +114,43 @@ class GoogleSheetsRepository:
             if fingerprint(original) != revision:
                 raise ConflictError("Los datos cambiaron en Google Sheets. Actualiza y vuelve a intentar.")
             state = deepcopy(decode(original))
-            state = apply_sheet_edits(state, original)  # incorpora decisiones manuales válidas
+            state = apply_sheet_edits(state, original, strict=False)  # incorpora decisiones válidas sin bloquear otras hojas
             operation(state)
             validar_estado(state)
             self._commit(state, original)
             tables = self._tables()
             return decode(tables), fingerprint(tables)
 
-    def _commit(self, state, original):
+    def recovery_options(self):
+        tables = self._tables()
+        rows = tables.get("Configuracion", [])
+        names = list(dict.fromkeys(str(r[0]) for r in rows[1:] if r and r[0]))
+        return names, fingerprint(tables)
+
+    def recover(self, revision, name, action):
+        from core.recovery import recover_tables
+        with _LOCK:
+            original = self._tables()
+            if fingerprint(original) != revision:
+                raise ConflictError("Los datos cambiaron. Actualiza antes de recuperar el torneo.")
+            state, safe_inputs = recover_tables(original, name, action)
+            self._commit(state, original, preserved_issues=safe_inputs)
+            tables = self._tables()
+            return decode(tables), fingerprint(tables)
+
+    def _commit(self, state, original, preserved_issues=None):
         updated = encode(state)
         updated.update(stage_tables(state))
         for tab in getattr(state, "sync_issues", {}):
-            updated[tab] = original[tab]
-        preserve_drafts(updated["Grupos"], original.get("Grupos", []))
+            updated[tab] = (preserved_issues or original)[tab]
+        preserve_drafts(updated["Grupos"], (preserved_issues or original).get("Grupos", []))
         if fingerprint(self._tables()) != fingerprint(original):
             raise ConflictError("Se detectó una edición concurrente. No se escribió ningún cambio.")
         requests = [{"updateSheetProperties": {"properties": {"sheetId": self.properties['Grupos']['sheetId'], "hidden": False, "index": 0}, "fields": "hidden,index"}}]
         for tab, rows in updated.items():
             props = self.properties[tab]
             sheet_id = props["sheetId"]
-            visible = tab in ('Grupos', 'Podio') or tab in STAGE_TABS
+            visible = tab in ('Grupos', 'Podio') or tab in STAGE_TABS or (tab in LINE_SHEETS.values() and any(c.config.sistema == 'Tiempos' for c in state.competitions.values()))
             hidden = not visible or (tab == '32 avos' and not any(c.config.cupos_clasificados == 64 for c in state.competitions.values()))
             requests.append({"updateSheetProperties": {"properties": {"sheetId": sheet_id, "hidden": hidden}, "fields": "hidden"}})
             old = original.get(tab, [])
@@ -146,7 +164,7 @@ class GoogleSheetsRepository:
                     "gridProperties": {"rowCount": max(height, grid["rowCount"]),
                                        "columnCount": max(width, grid["columnCount"])}},
                     "fields": "gridProperties(rowCount,columnCount)"}})
-            if tab == "Grupos" or tab in STAGE_TABS:
+            if tab == "Grupos" or tab in STAGE_TABS or tab in LINE_SHEETS.values():
                 requests.append({"unmergeCells": {"range": {"sheetId": sheet_id}}})
             requests.append({"updateCells": {"range": {"sheetId": sheet_id, "startRowIndex": 0,
                 "endRowIndex": height, "startColumnIndex": 0, "endColumnIndex": width},
@@ -161,6 +179,8 @@ class GoogleSheetsRepository:
                 requests.extend(board_format_requests(sheet_id, rows, height, max(width,grid['columnCount']), self.group_rule_count))
             elif tab == 'Podio':
                 requests.extend(podium_format_requests(sheet_id, rows, height, max(width, grid['columnCount']), state))
+            elif tab in LINE_SHEETS.values():
+                requests.extend(line_format_requests(sheet_id, rows, height, max(width, grid['columnCount'])))
             elif tab in STAGE_TABS:
                 for index, row in enumerate(rows):
                     if index == 0 or (len(row) == 1 and str(row[0]).startswith('Competencia:')):

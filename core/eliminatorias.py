@@ -76,3 +76,19 @@ def actualizar_ganador(c: Competition, id_partido: str, ganador: str, confirmar:
     partido.ganador = ganador
     partido.estado = "Finalizado" if ganador else "Pendiente"
     reconciliar(c)
+
+
+def reseed(c):
+    """Corrige grupos conservando las parejas y los resultados no afectados."""
+    first = fase_para(c.config.cupos_clasificados)
+    qualifying = {t.id_equipo for t in c.teams if t.clasificado}
+    matches = partidos_fase(c, first)
+    retained = {tid for m in matches for tid in (m.equipo_1, m.equipo_2) if tid in qualifying}
+    added = iter(t.id_equipo for t in c.teams if t.clasificado and t.id_equipo not in retained)
+    for m in matches:
+        pair = tuple(tid if tid in qualifying else next(added, "") for tid in (m.equipo_1, m.equipo_2))
+        if pair != (m.equipo_1, m.equipo_2):
+            m.equipo_1, m.equipo_2 = pair
+            m.ganador = ""
+        m.estado = "Finalizado" if m.ganador else "Pendiente" if all(pair) else "Por definir"
+    reconciliar(c)

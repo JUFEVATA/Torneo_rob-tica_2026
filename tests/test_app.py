@@ -78,6 +78,40 @@ class InterfaceTests(unittest.TestCase):
         for page in ["Inicio", "Fases", "Podio", "Publicación", "Configuración", "Equipos", "Grupos", "Eliminatorias", "Historial", "Administración"]:
             self.page(at, page)
 
+    def test_line_public_pages_and_admin_time_entry(self):
+        from tests.test_line_racing import line_state
+        state,c=line_state(4)
+        _,rev=self.repo.read();self.repo.transact(rev,lambda s:s.competitions.update(state.competitions))
+        at=self.app()
+        for page in ['Inicio','Fases','Podio']:
+            self.page(at,page)
+            self.assertFalse(at.dataframe);self.assertFalse(at.get('download_button'))
+        at=self.app(True);self.page(at,'Registro de tiempos')
+        widget(at.selectbox,'Resultado intento 1').set_value('Tiempo')
+        widget(at.number_input,'Segundos intento 1').set_value(32)
+        widget(at.number_input,'Milisegundos intento 1').set_value(125)
+        for i in (2,3):widget(at.selectbox,f'Resultado intento {i}').set_value('No terminó')
+        widget(at.button,'Guardar tiempos').click().run()
+        self.assertFalse(at.exception)
+        saved=self.repo.read()[0].competitions[c.config.competencia]
+        self.assertEqual(saved.timing['Linea1'][c.teams[0].id_equipo]['intentos'],['00:32.125','No terminó','No terminó'])
+        self.page(at,'Configuración');self.page(at,'Historial');self.page(at,'Administración')
+
+    def test_admin_can_recover_even_when_initial_state_invalid(self):
+        import json
+        self.load_tournament();data=json.loads(self.repo.path.read_text())
+        data['competitions']['Sumo']['config']['numero_grupos']=999
+        self.repo.path.write_text(json.dumps(data));read_state.clear()
+        at=self.app(True)
+        self.assertTrue(any(w.label=='Acción forzada' for w in at.selectbox))
+        widget(at.selectbox,'Acción forzada').set_value('Reiniciar competencia')
+        widget(at.text_input,'Nombre exacto para recuperación forzada').set_value('Sumo')
+        widget(at.checkbox,'Confirmo la recuperación forzada y el respaldo de los datos anteriores').check()
+        widget(at.button,'Ejecutar recuperación').click().run()
+        self.assertFalse(at.exception)
+        self.assertFalse(self.repo.read()[0].competitions['Sumo'].teams)
+        self.assertTrue(self.repo.read()[0].recovery_backups)
+
     def test_publish_stage_and_competition_shared_with_new_public_session(self):
         from tests.test_free_rounds import free_state
         from core.free_rounds import classify

@@ -81,6 +81,12 @@ def resize_groups(c,total,groups,cupos,shuffle=False):
     c.config.torneo_iniciado=True
     c.config.fase_actual='Grupos'
     c.config.campeon=''
+    if c.config.sistema == 'Tiempos':
+        valid_ids = {t.id_equipo for t in c.teams}
+        for key in ('puesto_1', 'puesto_2', 'puesto_3'):
+            if getattr(c.config, key) not in valid_ids: setattr(c.config, key, '')
+        from core.line_racing import reconcile
+        reconcile(c)
 
 
 def parse_board(state,rows):

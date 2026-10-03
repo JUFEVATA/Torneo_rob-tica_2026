@@ -45,6 +45,10 @@ h1,h2,h3 {font-family:'Space Grotesk',sans-serif!important;letter-spacing:-.04em
 .phase-columns {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,max(240px,calc((100% - 72px)/4))),1fr));column-gap:24px;padding:8px 12px;}
 .phase-columns .team-row {padding:8px;min-width:0;}
 .phase-columns .team-row:last-child {border-bottom:1px solid #f0f3f3;}
+.race-detail {font-size:.85rem;color:#607779;font-variant-numeric:tabular-nums;margin-top:4px;}
+.race-flow {display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin:12px 0 24px;}
+.race-step {background:#fff;border:1px solid #D4E6DF;border-top:5px solid #0D9648;border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:10px;}
+.race-step strong {color:#173B3D;}.race-step span {font-size:1.35rem;color:#0D9648;}.race-step small {color:#607779;}
 .team-row {display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #f0f3f3;font-size:13px;}
 .team-row:last-child {border:0;}
 .team-row{gap:12px}.team-row>span:first-child{min-width:0;overflow-wrap:anywhere}

@@ -82,8 +82,9 @@ class SheetFlowTests(unittest.TestCase):
         state = apply_sheet_edits(state,tables)
         tables = stage_tables(state)
         tables['16 avos'][3][2] = 'Pendiente'
-        with self.assertRaises(ValidationError):
-            apply_sheet_edits(state,tables)
+        tables['16 avos'][4][2] = 'Pendiente'
+        corrected = apply_sheet_edits(state,tables)
+        self.assertFalse(corrected.competitions['Sumo'].matches[0].ganador)
 
     def test_read_persists_dropdowns_once_and_preserves_ids(self):
         server = FakeSpreadsheet()

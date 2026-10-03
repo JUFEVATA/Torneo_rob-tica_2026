@@ -1,12 +1,14 @@
 """Presentación pública y papelera, independientes de los resultados deportivos."""
 from core.eliminatorias import ORDEN_FASES, partidos_fase
 from core.models import ValidationError, new_id
+from core.line_racing import PHASES as LINE_PHASES, LABELS as LINE_LABELS
 
 PUBLIC_PAGES = ["Inicio", "Fases", "Podio"]
-STAGES = ["Inscripción", "Grupos", *ORDEN_FASES, "Finalizado"]
+STAGES = ["Inscripción", "Grupos", *ORDEN_FASES, *LINE_PHASES, "Finalizado"]
 LABELS = {"Treintaidosavos": "32avos de final", "Dieciseisavos": "16avos de final", "Octavos": "Octavos de final",
           "Cuartos": "Cuartos de final", "Semifinal": "Semifinal", "Final": "Final", "Finalizado": "Finalizado",
           "Grupos": "Grupos", "Inscripción": "Inscripción"}
+LABELS.update(LINE_LABELS)
 
 
 def public_name(state):
@@ -20,14 +22,29 @@ def shown_stage(c):
     return c.config.etapa_publica or c.config.fase_actual
 
 
+def stages_for(c):
+    return ["Inscripción", *LINE_PHASES, "Finalizado"] if c.config.sistema == "Tiempos" else [p for p in STAGES if p not in LINE_PHASES]
+
+
 def publish(state, name, stage=""):
-    if name not in state.competitions or stage and stage not in STAGES:
+    if name not in state.competitions or stage and stage not in stages_for(state.competitions[name]):
         raise ValidationError("Competencia o etapa de publicación inválida.")
     state.public_competition = name
     state.competitions[name].config.etapa_publica = stage
 
 
 def podium(c):
+    if c.config.sistema == "Tiempos":
+        from core.line_racing import rank
+        ordered = rank(c, "Linea4") if "Linea4" in c.closed_phases else []
+        manual = {c.config.puesto_1, c.config.puesto_2, c.config.puesto_3} - {""}
+        automatic = [tid for tid in ordered if tid not in manual]
+        result, used = {}, set()
+        for pos in (1, 2, 3):
+            tid = getattr(c.config, f"puesto_{pos}") or next((t for t in automatic if t not in used), "")
+            result[pos] = tid
+            if tid: used.add(tid)
+        return result
     manual_ids = {c.config.puesto_1, c.config.puesto_2, c.config.puesto_3} - {""}
     first = c.config.puesto_1 or (c.config.campeon if c.config.campeon not in manual_ids else "")
     second = c.config.puesto_2
@@ -76,6 +93,6 @@ def validate_publication(state):
     if state.public_competition and state.public_competition not in state.competitions:
         raise ValidationError("La competencia pública no existe.")
     for c in state.competitions.values():
-        if c.config.etapa_publica and c.config.etapa_publica not in STAGES:
+        if c.config.etapa_publica and c.config.etapa_publica not in stages_for(c):
             raise ValidationError("Etapa pública inválida.")
         save_podium(c, c.config.puesto_1, c.config.puesto_2, c.config.puesto_3)

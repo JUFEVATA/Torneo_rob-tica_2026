@@ -26,24 +26,29 @@ def render(state, c, mode, revision, admin):
     with st.expander("＋ Crear una competencia", expanded=not state.competitions):
         with st.form("new_competition"):
             name = st.text_input("Nombre de la competencia", placeholder="Seguidor de línea")
+            kind = st.selectbox("Tipo de competencia", ["Clasificación libre", "Seguidor de línea por tiempos"])
             left, right = st.columns(2)
             total = left.number_input("Cantidad total de equipos", min_value=2, max_value=4096, value=32)
             groups = right.number_input("Cantidad de grupos", min_value=1, max_value=4096, value=6)
             participants = left.number_input("Cantidad total de participantes", min_value=0, value=0)
             qualified = right.selectbox("Equipos que avanzan", [2, 4, 8, 16, 32, 64], index=3)
             if st.form_submit_button("Crear competencia", type="primary"):
-                execute(mode, revision, lambda s: crear_competencia(s, Config(name, total, groups, participants, qualified, sistema="Libre")), "Competencia creada.")
+                system = "Tiempos" if kind == "Seguidor de línea por tiempos" else "Libre"
+                cap = min(16, max(n for n in (2, 4, 8, 16, 32, 64) if n <= total)) if system == "Tiempos" else qualified
+                execute(mode, revision, lambda s: crear_competencia(s, Config(name, total, groups, participants, cap, sistema=system)), "Competencia creada.")
     if not c:
         return
     cfg = c.config
     st.subheader(cfg.competencia)
+    if cfg.sistema == "Tiempos":
+        st.info("Seguidor de línea: cuatro fases. Avanzan 16 → 8 → 4; la final define los tres puestos por el menor tiempo válido. Tres intentos y tres fallos nuevos por fase.")
     if cfg.torneo_iniciado:
         if not c.matches and all(t.estado == 'Pendiente' for t in c.teams):
             with st.expander("Cantidad de equipos y grupos", expanded=True):
                 with st.form("resize_board"):
                     total = st.number_input("Equipos inscritos en competencia", 2, 4096, len(c.teams))
                     groups = st.number_input("Cantidad de bloques / grupos", 1, 4096, cfg.numero_grupos)
-                    cupos = st.selectbox("Clasificados que avanzan", [2,4,8,16,32,64], index=[2,4,8,16,32,64].index(cfg.cupos_clasificados))
+                    cupos = st.selectbox("Clasificados que avanzan", [2,4,8,16,32,64], index=[2,4,8,16,32,64].index(cfg.cupos_clasificados), disabled=cfg.sistema == "Tiempos")
                     method = st.selectbox("Distribuir equipos", ["Orden original", "Sorteo aleatorio"])
                     st.caption(f"{len(c.reserve)} equipos en reserva. Al reducir el total, se conservan los nombres sobrantes; al aumentarlo, se recuperan primero.")
                     if st.form_submit_button("Aplicar distribución"):
@@ -57,10 +62,10 @@ def render(state, c, mode, revision, admin):
                     execute(mode, revision, lambda s: resize_groups(s.competitions[cfg.competencia], len(c.teams), groups, cfg.cupos_clasificados), "Grupos actualizados; resultados conservados.")
         st.success(f"Grupos guardados · {cfg.metodo_grupos} · Fase: {cfg.fase_actual}")
         st.write("Distribución: " + cfg.equipos_por_grupo)
-        st.caption("Puedes cambiar la cantidad de grupos conservando los resultados. Para cambiar equipos o cupos después de clasificar, reinicia el torneo desde Administración.")
+        st.caption("Puedes cambiar los grupos conservando los resultados. Administración permite reiniciar la competencia y recuperar datos bloqueados.")
         with st.form("participants_total"):
             value = st.number_input("Total esperado de participantes", min_value=0, value=cfg.numero_participantes)
-            cupos = st.selectbox("Cupos para eliminatorias", [2, 4, 8, 16, 32, 64], index=[2, 4, 8, 16, 32, 64].index(cfg.cupos_clasificados), disabled=bool(c.matches or c.rounds or any(t.estado != "Pendiente" for t in c.teams)))
+            cupos = st.selectbox("Cupos para eliminatorias", [2, 4, 8, 16, 32, 64], index=[2, 4, 8, 16, 32, 64].index(cfg.cupos_clasificados), disabled=bool(cfg.sistema == "Tiempos" or c.matches or c.rounds or any(t.estado != "Pendiente" for t in c.teams)))
             if st.form_submit_button("Actualizar total de participantes"):
                 def update(s):
                     current = s.competitions[cfg.competencia]
@@ -73,7 +78,7 @@ def render(state, c, mode, revision, admin):
         total = a.number_input("Total de equipos esperado", 2, 4096, cfg.numero_equipos)
         groups = b.number_input("Total de grupos", 1, 4096, cfg.numero_grupos)
         participants = a.number_input("Participantes esperados", min_value=0, value=cfg.numero_participantes)
-        qualified = b.selectbox("Cupos de clasificación", [2, 4, 8, 16, 32, 64], index=[2, 4, 8, 16, 32, 64].index(cfg.cupos_clasificados))
+        qualified = b.selectbox("Cupos de clasificación", [2, 4, 8, 16, 32, 64], index=[2, 4, 8, 16, 32, 64].index(cfg.cupos_clasificados), disabled=cfg.sistema == "Tiempos")
         method = st.radio("Método de distribución", ["Orden original", "Sorteo aleatorio"], horizontal=True)
         generic = st.checkbox("Completar equipos faltantes con nombres genéricos")
         save = st.form_submit_button("Guardar configuración")

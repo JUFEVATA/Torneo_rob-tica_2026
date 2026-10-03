@@ -3,6 +3,27 @@ import streamlit as st
 from core.tournament import reiniciar
 from services.runtime import execute
 from core.publication import archive, restore
+import json
+
+
+def render_recovery(mode, default=None):
+    from services.runtime import get_repository
+    names, revision = get_repository(mode).recovery_options()
+    if not names:
+        return
+    with st.expander("Recuperación forzada"):
+        st.caption("Funciona aunque una hoja contenga entradas inválidas. Guarda un respaldo antes de retirar el torneo o reiniciarlo; conserva las otras competencias.")
+        with st.form("force_recovery"):
+            name = st.selectbox("Torneo a recuperar", names, index=names.index(default) if default in names else 0)
+            action = st.selectbox("Acción forzada", ["Eliminar", "Reiniciar resultados", "Reiniciar competencia"])
+            st.caption("Reiniciar resultados conserva equipos y grupos, pero borra clasificaciones, tiempos y podio. Reiniciar competencia también retira los equipos.")
+            exact = st.text_input("Nombre exacto para recuperación forzada")
+            confirm = st.checkbox("Confirmo la recuperación forzada y el respaldo de los datos anteriores")
+            if st.form_submit_button("Ejecutar recuperación", type="primary"):
+                if not confirm or exact != name:
+                    st.error("Confirma la acción y escribe el nombre exacto del torneo.")
+                else:
+                    execute(mode, revision, None, "Recuperación completada. Se guardó el respaldo anterior.", recovery=(name, action))
 
 
 def render(state, c, mode, revision, admin):
@@ -10,6 +31,11 @@ def render(state, c, mode, revision, admin):
     if not admin:
         st.info("Accede como administrador desde el menú lateral.")
         return
+    render_recovery(mode, c.config.competencia if c else None)
+    if state.recovery_backups:
+        with st.expander("Respaldos de recuperación"):
+            key = st.selectbox("Respaldo", list(state.recovery_backups), format_func=lambda k: state.recovery_backups[k]["competencia"] + " · " + state.recovery_backups[k]["accion"] + " · " + k[:6])
+            st.download_button("Descargar respaldo de recuperación", json.dumps(state.recovery_backups[key], ensure_ascii=False, indent=2), "respaldo-torneo.json", "application/json")
     with st.expander("Papelera", expanded=not c):
         if state.archived:
             archive_id = st.selectbox("Competencia eliminada", list(state.archived),

@@ -151,15 +151,19 @@ def import_roster(state: State, roster: Roster, replace=False) -> None:
         if {t.id_equipo:t.grupo for t in teams} == {t.id_equipo:t.grupo for t in existing.teams}:
             candidate.config.metodo_grupos = existing.config.metodo_grupos
     if existing and existing.matches and not replace:
-        # Después de cerrar grupos solo se permiten nombres/participantes; el resto
-        # requiere reiniciar eliminatorias desde la administración.
-        old_roster = {t.id_equipo: (t.grupo, t.estado) for t in existing.teams}
-        new_roster = {t.id_equipo: (t.grupo, t.estado) for t in teams}
-        if old_roster != new_roster or roster.groups != existing.config.numero_grupos:
-            raise ValidationError('Grupos ya está cerrado. Reinicia las eliminatorias como administrador para cambiar sus clasificados o equipos.')
+        from core.eliminatorias import reseed
         candidate.matches = deepcopy(existing.matches)
-        candidate.config.fase_actual = existing.config.fase_actual
-        candidate.config.campeon = existing.config.campeon
+        reseed(candidate)
+    valid_ids = {t.id_equipo for t in teams}
+    for key in ("puesto_1", "puesto_2", "puesto_3"):
+        if getattr(config, key) not in valid_ids:
+            setattr(config, key, "")
+    if config.sistema == "Tiempos":
+        from core.line_racing import reconcile
+        candidate.timing = deepcopy(existing.timing) if existing else {}
+        candidate.closed_phases = list(existing.closed_phases) if existing else []
+        config.regla_fallos = existing.config.regla_fallos if existing else "Por fase"
+        reconcile(candidate)
     if config.sistema == "Libre":
         from core.free_rounds import reconcile
         candidate.rounds = deepcopy(existing.rounds) if existing else {}
@@ -219,15 +223,12 @@ def phase_rows(state: State, phase: str) -> list[list]:
 
 def stage_tables(state: State) -> dict:
     from core.podium_sheet import podium_rows
-    return {'Grupos': board_rows(state), 'Podio': podium_rows(state), **{tab: phase_rows(state, phase) for phase, tab in PHASE_SHEETS.items()}}
+    from core.line_racing import SHEETS, sheet_rows
+    return {'Grupos': board_rows(state), 'Podio': podium_rows(state), **{tab: phase_rows(state, phase) for phase, tab in PHASE_SHEETS.items()},
+            **{tab: sheet_rows(state, phase) for phase, tab in SHEETS.items()}}
 
 
-def apply_sheet_edits(state: State, tables: dict, strict=True) -> State:
-    """Reconciliación de entradas editadas, sin tomar proyecciones viejas por cambios.
-
-    Compara contra la proyección del estado persistido y aplica solo decisiones
-    modificadas. Las fases vacías no se crean hasta completar la anterior.
-    """
+def _apply_group_edits(state, tables):
     updated = deepcopy(state)
     raw_groups = tables.get('Grupos', [])
     actions = {}
@@ -250,6 +251,24 @@ def apply_sheet_edits(state: State, tables: dict, strict=True) -> State:
                 iniciar_eliminatorias(c)
     for name, quantities in actions.items():
         resize_groups(updated.competitions[name], *quantities)
+    return updated
+
+
+def apply_sheet_edits(state: State, tables: dict, strict=True) -> State:
+    """Reconciliación de entradas editadas, sin tomar proyecciones viejas por cambios.
+
+    Compara contra la proyección del estado persistido y aplica solo decisiones
+    modificadas. Las fases vacías no se crean hasta completar la anterior.
+    """
+    updated = deepcopy(state)
+    try:
+        updated = _apply_group_edits(state, tables)
+    except ValidationError as error:
+        if strict:
+            raise
+        updated.sync_issues = {"Grupos": str(error)}
+        updated.sync_error = str(error)
+    raw_groups = tables.get('Grupos', [])
     legacy = not raw_groups or not raw_groups[0] or not str(raw_groups[0][0]).startswith('TORNEOS DE ROBÓTICA')
     for phase, tab in PHASE_SHEETS.items():
         if legacy and not tables.get(tab):
@@ -264,6 +283,18 @@ def apply_sheet_edits(state: State, tables: dict, strict=True) -> State:
             issues[tab] = str(error)
             updated.sync_issues = issues
             updated.sync_error = ' | '.join(issues.values())
+        else:
+            updated = candidate
+    from core.line_racing import SHEETS, apply_sheet_phase
+    for phase, tab in SHEETS.items():
+        if not tables.get(tab): continue
+        candidate = deepcopy(updated)
+        try:
+            apply_sheet_phase(candidate, state, tables[tab], phase)
+        except ValidationError as error:
+            if strict: raise
+            updated.sync_issues = {**getattr(updated, 'sync_issues', {}), tab: str(error)}
+            updated.sync_error = ' | '.join(updated.sync_issues.values())
         else:
             updated = candidate
     if tables.get('Podio'):
@@ -323,8 +354,9 @@ def _apply_phase_edits(updated, state, tables, phase, tab):
         if c is None:
             raise ValidationError('El partido ya no existe.')
         m = next(m for m in c.matches if m.id_partido == mid)
-        if m.ganador:
-            raise ValidationError(f'{tab}, partido {m.numero_partido}: corrige resultados finalizados desde Administración/Eliminatorias y confirma sus efectos.')
+        old_match = next(match for old_c in state.competitions.values() for match in old_c.matches if match.id_partido == mid)
+        if (m.equipo_1, m.equipo_2) != (old_match.equipo_1, old_match.equipo_2):
+            continue  # la corrección anterior cambió este cruce; no importar un resultado obsoleto
         statuses = all_rows[mid]
         winners = [t for t,s in statuses.items() if s == 'Clasifica']
         losers = [t for t,s in statuses.items() if s == 'No clasifica']
@@ -332,7 +364,9 @@ def _apply_phase_edits(updated, state, tables, phase, tab):
             raise ValidationError(f'{tab}, partido {m.numero_partido}: solo puede clasificar un equipo.')
         winner = winners[0] if winners else next((t for t in (m.equipo_1,m.equipo_2) if t and t not in losers), '') if losers else ''
         if winner:
-            actualizar_ganador(c, mid, winner)
+            actualizar_ganador(c, mid, winner, confirmar=True)
+        elif m.ganador and all(status == 'Pendiente' for status in statuses.values()):
+            actualizar_ganador(c, mid, '', confirmar=True)
 
 
 def active_participants(c: Competition) -> list[dict]:

@@ -104,5 +104,6 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(saved,state)
         self.assertTrue(saved.sync_error)
         self.assertEqual(len(server.writes),before)
-        with self.assertRaises(ValidationError):repo.transact(rev,lambda s:None)
+        saved, _ = repo.transact(rev,lambda s:None)
+        self.assertEqual(saved,state)
         self.assertEqual(server.tables['Semifinal'][4][2],'Clasifica')

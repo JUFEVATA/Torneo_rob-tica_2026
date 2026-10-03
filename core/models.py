@@ -34,6 +34,7 @@ class Config:
     puesto_1: str = ""
     puesto_2: str = ""
     puesto_3: str = ""
+    regla_fallos: str = "Por fase"
 
 
 @dataclass
@@ -66,6 +67,8 @@ class Competition:
     matches: list[Match] = field(default_factory=list)
     reserve: list[Team] = field(default_factory=list)
     rounds: dict[str, dict[str, str]] = field(default_factory=dict)
+    timing: dict[str, dict[str, dict]] = field(default_factory=dict)
+    closed_phases: list[str] = field(default_factory=list)
 
     def name(self, team_id: str) -> str:
         return next((t.nombre_equipo for t in self.teams if t.id_equipo == team_id), "Por definir")
@@ -76,6 +79,7 @@ class State:
     competitions: dict[str, Competition] = field(default_factory=dict)
     public_competition: str = ""
     archived: dict[str, Competition] = field(default_factory=dict)
+    recovery_backups: dict[str, dict] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -85,7 +89,8 @@ class State:
         def competition(v):
             return Competition(Config(**v["config"]), [Team(**t) for t in v["teams"]],
                                [Match(**m) for m in v["matches"]],
-                               [Team(**t) for t in v.get("reserve", [])], v.get("rounds", {}))
+                               [Team(**t) for t in v.get("reserve", [])], v.get("rounds", {}),
+                               v.get("timing", {}), v.get("closed_phases", []))
         return cls({key: competition(v) for key, v in data["competitions"].items()},
                    data.get("public_competition", ""),
-                   {key: competition(v) for key, v in data.get("archived", {}).items()})
+                   {key: competition(v) for key, v in data.get("archived", {}).items()}, data.get("recovery_backups", {}))

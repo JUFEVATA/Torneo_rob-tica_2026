@@ -1,6 +1,6 @@
-# Verificación · 30 septiembre 2026
+# Verificación · 2 octubre 2026
 
-80 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+106 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -28,3 +28,16 @@
 La sincronización requiere una sesión abierta de Streamlit y consulta cada 10 segundos, con caché de 10 segundos. No funciona como un disparador autónomo de Google Sheets.
 
 Los datos reales se conservan durante esta actualización. Las pruebas de borrado/restauración y podio usan repositorios temporales; no se asignan ganadores ni se elimina una competencia real durante la verificación.
+
+Verificaciones de recuperación y seguidor de línea:
+
+- Recorrido por tiempos de 32 → 16 → 8 → 4 → podio; precisión de milisegundos, mejor intento y límite de 90 segundos.
+- Tres fallos nuevos por fase, descalificación por tres fallos, ausencia y decisiones del juez.
+- Cierre con los tres intentos registrados o decisión del juez; empates que afectan cupos/podio exigen desempate explícito.
+- Corrección en fase 1 tras cerrar la final reabre la fase afectada, preserva los tiempos de los participantes que permanecen y limpia el campeón antiguo.
+- Entrada y cierre desde las hojas de tiempos actualizan la siguiente fase; las proyecciones antiguas no deshacen una corrección anterior.
+- Corrección de grupos y ganadores en torneos por parejas después de la final conserva las ramas no afectadas.
+- Recuperación forzada con entrada visible inválida, configuración ilegible o ganador inexistente; reinicio de resultados conserva equipos; reinicio completo permite volver a configurar.
+- Borrado de la competencia dañada conserva otras competencias y guarda las entradas originales; revisión obsoleta impide sobrescribir una edición concurrente.
+- Acceso de administrador y recuperación desde el error inicial comprobados con AppTest.
+- Interfaz de tiempos captura minutos, segundos y milisegundos y todas sus páginas públicas carecen de CSV.

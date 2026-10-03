@@ -14,6 +14,10 @@ def actuales(c):
 
 def historial(c):
     st.header("Historial")
+    if c.config.sistema == "Tiempos":
+        from components.tiempos import history
+        history(c)
+        return
     rows = history_rows(c)
     phases = list(dict.fromkeys(r['Fase'] for r in rows))
     phase = st.selectbox("Fase del historial", ["Todas"] + phases)

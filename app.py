@@ -3,7 +3,7 @@ import os
 from html import escape
 import streamlit as st
 
-from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes, rondas_libres, publico, publicacion
+from components import admin, clasificados, configuracion, eliminatorias, equipos, grupos, participantes, rondas_libres, publico, publicacion, tiempos
 from components.layout import inject_style
 from core.models import ValidationError
 from core.publication import PUBLIC_PAGES, public_name
@@ -56,6 +56,8 @@ with st.sidebar:
         initial_state, _ = read_state(mode)
     except ValidationError as error:
         st.error(str(error))
+        if is_admin():
+            admin.render_recovery(mode)
         st.info("Revisa los datos manuales en Sheets según README.md y pulsa Actualizar.")
         if st.button("Actualizar"):
             read_state.clear()
@@ -78,7 +80,8 @@ with st.sidebar:
         selected = public_name(initial_state)
         if selected:
             st.markdown(f'<div class="competition-name">{escape(selected)}</div>', unsafe_allow_html=True)
-    pages = PUBLIC_PAGES + (["Publicación", "Configuración", "Equipos", "Grupos", "Eliminatorias", "Historial", "Administración"] if editable_at_start else [])
+    timed = selected and initial_state.competitions[selected].config.sistema == "Tiempos"
+    pages = PUBLIC_PAGES + (["Publicación", "Configuración", "Equipos", "Grupos", "Registro de tiempos" if timed else "Eliminatorias", "Historial", "Administración"] if editable_at_start else [])
     page = st.radio("Navegación", pages, label_visibility="collapsed", key="admin_navigation" if editable_at_start else "public_navigation")
     st.divider()
     if is_admin():
@@ -105,6 +108,8 @@ def content():
         state, revision = read_state(mode)
     except ValidationError as error:
         st.error(str(error))
+        if is_admin():
+            admin.render_recovery(mode)
         return
     except Exception as error:
         st.error(connection_error(error))
@@ -143,6 +148,8 @@ def content():
         equipos.render(c, mode, revision, editable)
     elif page == "Grupos":
         grupos.render(c, mode, revision, editable)
+    elif page == "Registro de tiempos" and editable and c.config.sistema == "Tiempos":
+        tiempos.render(c, mode, revision)
     elif c.config.sistema == "Libre" and page == "Eliminatorias":
         rondas_libres.render(c, mode, revision, editable)
     elif page == "Eliminatorias":

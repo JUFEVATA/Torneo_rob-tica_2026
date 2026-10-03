@@ -7,6 +7,43 @@ def color(hexcode):
     return dict(zip(('red','green','blue'),(int(hexcode[i:i+2],16)/255 for i in (1,3,5))))
 
 
+def line_format_requests(sid, rows, height, width):
+    """Tiempos como texto exacto, decisiones nativas y resultados derivados."""
+    def area(r=0, end=None, col=0, last=10):
+        result = {'sheetId': sid, 'startRowIndex': r, 'startColumnIndex': col, 'endColumnIndex': last}
+        if end is not None: result['endRowIndex'] = end
+        return result
+    def paint(r, end, style):
+        return {'repeatCell': {'range': area(r, end), 'cell': {'userEnteredFormat': style}, 'fields': 'userEnteredFormat'}}
+    def dropdown(r, col, values):
+        return {'setDataValidation': {'range': area(r, r+1, col, col+1), 'rule': {'condition': {'type': 'ONE_OF_LIST', 'values': [{'userEnteredValue': str(v)} for v in values]}, 'strict': True, 'showCustomUi': True}}}
+    req = [
+        {'setDataValidation': {'range': {'sheetId': sid}}},
+        {'updateSheetProperties': {'properties': {'sheetId': sid, 'gridProperties': {'hideGridlines': True, 'frozenRowCount': 3, 'frozenColumnCount': 0}}, 'fields': 'gridProperties(hideGridlines,frozenRowCount,frozenColumnCount)'}},
+        paint(0, height, {'backgroundColor': color('#FFFFFF'), 'textFormat': {'fontFamily': 'Arial', 'fontSize': 11, 'foregroundColor': color('#173B3D')}, 'verticalAlignment': 'MIDDLE', 'wrapStrategy': 'WRAP'}),
+        {'repeatCell': {'range': area(3, height, 1, 4), 'cell': {'userEnteredFormat': {'numberFormat': {'type': 'TEXT'}}}, 'fields': 'userEnteredFormat.numberFormat'}},
+        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 0, 'endIndex': height}, 'properties': {'pixelSize': 36}, 'fields': 'pixelSize'}},
+        {'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'COLUMNS', 'startIndex': 10, 'endIndex': width}, 'properties': {'hiddenByUser': True}, 'fields': 'hiddenByUser'}},
+    ]
+    for col, pixels in enumerate([255, 115, 115, 115, 70, 145, 135, 120, 65, 175]):
+        req.append({'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'COLUMNS', 'startIndex': col, 'endIndex': col+1}, 'properties': {'pixelSize': pixels, 'hiddenByUser': False}, 'fields': 'pixelSize,hiddenByUser'}})
+    req.append(paint(2, 3, {'backgroundColor': color('#0D9648'), 'textFormat': {'bold': True, 'foregroundColor': color('#FFFFFF')}, 'wrapStrategy': 'WRAP'}))
+    req.append({'updateDimensionProperties': {'range': {'sheetId': sid, 'dimension': 'ROWS', 'startIndex': 2, 'endIndex': 3}, 'properties': {'pixelSize': 48}, 'fields': 'pixelSize'}})
+    note = 'Reglamento 02/09/2026: máximo dos integrantes y un robot por equipo. Tres intentos por fase; se toma el menor tiempo válido de hasta 90 s. Tres fallos nuevos por fase; el juez registra sanciones por pérdida de línea o intervención. Reparación previa: 1 min; tolerancia de presentación: 1 min; espera de salida: 2 s. Esas esperas no se suman al recorrido. Avanzan 16 → 8 → 4; los tres mejores de la final definen el podio. El juez decide sanciones y desempates. Cierra la fase cuando se completen los intentos o la decisión del juez. No edites los resultados calculados ni las columnas ocultas.'
+    req.append({'repeatCell': {'range': area(1, 2, 0, 1), 'cell': {'note': note}, 'fields': 'note'}})
+    for r, row in enumerate(rows):
+        if r in (0, 1) or row and str(row[0]).startswith('Competencia: '):
+            req.append({'mergeCells': {'range': area(r, r+1), 'mergeType': 'MERGE_ALL'}})
+            req.append(paint(r, r+1, {'backgroundColor': color('#F3F7F6'), 'textFormat': {'fontSize': 15 if r != 1 else 11, 'bold': r != 1, 'foregroundColor': color('#0D9648')}}))
+        elif row and row[0] == 'Estado de fase':
+            req.append(dropdown(r, 1, ['Abierta', 'Cerrada']))
+        elif len(row) > 10 and row[10] and row[10] != 'id_equipo':
+            req.extend([dropdown(r, 4, range(4)), dropdown(r, 5, ['Sin sanción', 'No presentó', 'Descalificado'])])
+            req.append({'setDataValidation': {'range': area(r, r+1, 6, 7), 'rule': {'condition': {'type': 'NUMBER_BETWEEN', 'values': [{'userEnteredValue': '0'}, {'userEnteredValue': '4096'}]}, 'strict': True}}})
+            req.append({'repeatCell': {'range': area(r, r+1, 7, 10), 'cell': {'userEnteredFormat': {'backgroundColor': color('#E6F4DE'), 'textFormat': {'bold': True, 'foregroundColor': color('#173B3D')}}}, 'fields': 'userEnteredFormat(backgroundColor,textFormat)'}})
+    return req
+
+
 def podium_format_requests(sid, rows, height, width, state):
     """Tres puestos por competencia, con selector nativo de equipos inscritos."""
     req = [

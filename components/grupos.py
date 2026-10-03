@@ -12,8 +12,8 @@ def render(c, mode, revision, admin):
     group_cards(c)
     if not admin or not c.config.torneo_iniciado:
         return
-    if c.matches:
-        st.info("La clasificación de grupos está cerrada. Reinicia las eliminatorias para modificarla.")
+    if c.config.sistema == "Tiempos":
+        st.info("Estos grupos organizan la inscripción. Registra los tres intentos en Registro de tiempos para clasificar.")
         return
     st.subheader("Registrar clasificación")
     group = st.selectbox("Grupo", [nombre_columna(i+1) for i in range(c.config.numero_grupos)], format_func=lambda g: f"Grupo {g}")
@@ -28,6 +28,6 @@ def render(c, mode, revision, admin):
                 def operation(s, tid=t.id_equipo, value=labels[selected]):
                     current = s.competitions[c.config.competencia]
                     clasificar(current, tid, value)
-                    if all(team.estado != "Pendiente" for team in current.teams) and sum(team.clasificado for team in current.teams) == current.config.cupos_clasificados:
+                    if not current.matches and all(team.estado != "Pendiente" for team in current.teams) and sum(team.clasificado for team in current.teams) == current.config.cupos_clasificados:
                         iniciar_eliminatorias(current)
                 execute(mode, revision, operation)

@@ -16,7 +16,7 @@ def normalizar(nombre: str) -> str:
 def validar_config(config: Config) -> None:
     if not config.competencia.strip() or len(config.competencia) > 100:
         raise ValidationError("La competencia debe tener entre 1 y 100 caracteres.")
-    if config.sistema not in ("Libre", "Enfrentamientos"):
+    if config.sistema not in ("Libre", "Enfrentamientos", "Tiempos"):
         raise ValidationError("Sistema de clasificación desconocido.")
     distribuir(config.numero_equipos, config.numero_grupos)
     fase_para(config.cupos_clasificados)
@@ -24,6 +24,8 @@ def validar_config(config: Config) -> None:
         raise ValidationError("Los cupos no pueden superar el total de equipos; se requieren al menos 2 equipos para eliminatorias.")
     if type(config.numero_participantes) is not int or config.numero_participantes < 0:
         raise ValidationError("El total de participantes no puede ser negativo.")
+    if config.regla_fallos not in ("Acumulados", "Por fase"):
+        raise ValidationError("Regla de fallos desconocida.")
 
 
 def crear_competencia(state: State, config: Config) -> None:
@@ -74,6 +76,8 @@ def editar_equipo(c: Competition, team_id: str, nombre: str, participantes: int)
     if type(participantes) is not int or participantes < 0:
         raise ValidationError("Los participantes deben ser enteros no negativos.")
     equipo.nombre_equipo, equipo.numero_participantes = nombre, participantes
+    if c.config.sistema == "Tiempos" and participantes > 2:
+        raise ValidationError("Seguidor de línea admite máximo dos integrantes por equipo.")
 
 
 def eliminar_equipo(c: Competition, team_id: str) -> None:
@@ -106,6 +110,9 @@ def iniciar_grupos(c: Competition, sorteo: bool = False, genericos: bool = False
     c.config.torneo_iniciado = True
     c.config.fase_actual = "Grupos"
     c.config.metodo_grupos = "Sorteo aleatorio" if sorteo else "Orden original"
+    if c.config.sistema == "Tiempos":
+        from core.line_racing import reconcile
+        reconcile(c)
 
 
 def clasificar(c: Competition, team_id: str, estado: str) -> None:
@@ -113,32 +120,27 @@ def clasificar(c: Competition, team_id: str, estado: str) -> None:
         from core.free_rounds import classify
         classify(c,"Grupos",team_id,estado)
         return
-    if not c.config.torneo_iniciado or c.matches:
-        raise ValidationError("La clasificación solo se modifica en la fase de grupos.")
+    if c.config.sistema == "Tiempos":
+        raise ValidationError("Esta competencia clasifica por tiempos; usa Registro de tiempos.")
+    if not c.config.torneo_iniciado:
+        raise ValidationError("Primero inicia la competencia.")
     if estado not in ("Clasificado", "Eliminado", "Pendiente"):
         raise ValidationError("Estado de clasificación inválido.")
     equipo = next((t for t in c.teams if t.id_equipo == team_id), None)
     if equipo is None:
         raise ValidationError("El equipo no existe.")
     if estado == "Clasificado" and not equipo.clasificado:
-        for t in c.reserve:
-            if not t.id_equipo or t.id_equipo in ids or t.competencia != nombre:
-                raise ValidationError("ID de reserva duplicado o competencia incorrecta.")
-            ids.add(t.id_equipo)
-            n = normalizar(t.nombre_equipo)
-            if not n or len(t.nombre_equipo) > 100 or n in nombres:
-                raise ValidationError("Nombre de reserva vacío o duplicado.")
-            nombres.add(n)
-            if t.grupo or t.estado != 'Pendiente' or t.clasificado:
-                raise ValidationError("Un equipo en reserva no puede tener grupo ni clasificación.")
-            if type(t.numero_participantes) is not int or t.numero_participantes < 0:
-                raise ValidationError("Participantes inválidos en Reserva.")
         if sum(t.clasificado for t in c.teams) >= c.config.cupos_clasificados:
             raise ValidationError("Ya se completaron todos los cupos de clasificación.")
     equipo.estado, equipo.clasificado = estado, estado == "Clasificado"
+    if c.matches:
+        from core.eliminatorias import reseed
+        reseed(c)
 
 
 def iniciar_eliminatorias(c: Competition, sorteo: bool = False) -> None:
+    if c.config.sistema == "Tiempos":
+        raise ValidationError("Las fases de seguidor de línea avanzan al cerrar los tiempos.")
     if c.config.sistema == "Libre":
         from core.free_rounds import reconcile
         reconcile(c)
@@ -161,6 +163,10 @@ def reiniciar(c: Competition, alcance: str, confirmar: bool = False) -> None:
         raise ValidationError("El reinicio requiere confirmación.")
     c.config.puesto_1 = c.config.puesto_2 = c.config.puesto_3 = ""
     c.config.etapa_publica = ""
+    if c.config.sistema == "Tiempos":
+        from core.line_racing import reset
+        reset(c, alcance)
+        return
     if c.config.sistema == "Libre":
         from core.free_rounds import reset
         reset(c,alcance)
@@ -238,6 +244,10 @@ def validar_estado(state: State) -> None:
                 raise ValidationError("equipos_por_grupo no coincide con la distribución guardada.")
         elif any(t.grupo or t.estado != "Pendiente" for t in c.teams) or c.matches:
             raise ValidationError("Hay grupos o partidos en un torneo no iniciado.")
+        if c.config.sistema == "Tiempos":
+            from core.line_racing import validate
+            validate(c)
+            continue
         if c.config.sistema == "Libre":
             from core.free_rounds import validate
             validate(c)
@@ -269,7 +279,7 @@ def validar_estado(state: State) -> None:
                 if len(usados) != len(set(usados)):
                     raise ValidationError("Un equipo aparece dos veces en una ronda.")
                 if index == 0:
-                    if set(usados) != {t.id_equipo for t in c.teams if t.clasificado} or len(usados) != cantidad:
+                    if set(usados) != {t.id_equipo for t in c.teams if t.clasificado} or len(usados) > cantidad:
                         raise ValidationError("La primera ronda no coincide con los clasificados.")
                 else:
                     anterior = partidos_fase(c, fases[index - 1])

@@ -45,11 +45,44 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 - Para una nueva competencia utiliza un nombre diferente e importa desde Configuración. No borres bloques de otras competencias.
 - Los torneos requieren al menos dos equipos. Los cupos admitidos son 2, 4, 8, 16, 32 o 64, sin pases libres. Con 64 cupos aparece también **32 avos**.
 
+## Seguidor de línea por tiempos
+
+En **Configuración → Crear una competencia**, elige **Seguidor de línea por tiempos**. Configura el total de equipos y grupos, introduce los nombres y pulsa **GENERAR GRUPOS**. Las tarjetas de Grupos sirven para organizar y editar la inscripción; la clasificación de esta modalidad se obtiene de los tiempos.
+
+Reglas del reglamento aportado, versión 2 septiembre 2026:
+
+- Cuatro fases: participan todos; avanzan los 16 mejores, después los 8 y luego los 4. Los tres mejores tiempos válidos de la cuarta fase definen el podio.
+- Tres intentos por equipo en cada fase. Se conserva el menor tiempo válido de esa fase; los tiempos anteriores no se suman.
+- Máximo **90 segundos** por recorrido. Formato **mm:ss.mmm**, por ejemplo `01:02.345`. Los valores se almacenan como texto en Sheets y se comparan como milisegundos enteros.
+- **Tres fallos nuevos en cada fase**, según la aclaración del organizador. El juez registra cuántos fallos penaliza; al llegar a tres, el equipo queda descalificado de esa fase. Un intento fallido y el contador de fallos son campos separados para registrar la decisión del juez sin inventar segundos de sanción.
+- Máximo dos integrantes por equipo y un robot. La presentación del robot, la intervención, el tiempo de reparación (un minuto) y la espera de salida (dos segundos) se controlan en pista por el juez; la app no añade esos segundos a los recorridos.
+- Los empates que afectan el último cupo o los puestos del podio requieren **órdenes de desempate diferentes** asignados por el juez. El nombre del equipo no decide una clasificación.
+
+Como administrador, abre **Registro de tiempos**, selecciona fase y equipo, y captura por separado minutos, segundos y milisegundos para los tres intentos. También puedes indicar **No terminó**, **Fallo**, **No presentó** o una descalificación. Guarda los tiempos y, cuando todos tengan sus tres intentos o una decisión del juez, confirma **Cerrar fase y clasificar**.
+
+En el mismo Google Sheet aparecen **SL Fase 1**, **SL Fase 2**, **SL Fase 3** y **SL Final**. Edita las columnas Intento 1–3 con `mm:ss.mmm`, el contador Fallos, Sanción y el orden de desempate. Una celda vacía representa un intento pendiente. Selecciona **Cerrada** junto a **Estado de fase** para avanzar. Mejor tiempo, Puesto y Resultado los calcula la aplicación; no los edites. Las columnas ocultas conservan la identidad de cada equipo. La hoja **Podio** muestra automáticamente los tres puestos cuando se cierra la final; los jueces pueden corregirlos manualmente.
+
+Puedes corregir cualquier fase anterior. Se recalculan los clasificados, se conservan los tiempos de quienes siguen participando y se retiran las decisiones que dependían de equipos que salen. Si un nuevo clasificado todavía no tiene sus intentos, la fase posterior vuelve a quedar abierta. Las entradas inválidas permanecen en su hoja para corregirlas y no bloquean las otras hojas.
+
+En público, **Inicio** muestra la fase publicada y sus mejores tiempos; **Fases** presenta las cuatro etapas y permite consultar sus participantes; **Podio** muestra las medallas. No hay descargas públicas.
+
+## Recuperación forzada
+
+Entra como administrador y abre **Administración → Recuperación forzada**. Esta sección también está disponible en el mensaje de error si los datos internos impiden cargar el torneo.
+
+Selecciona el torneo y la acción, escribe su nombre exacto, marca la confirmación y pulsa **Ejecutar recuperación**:
+
+- **Eliminar** retira la competencia y sus hojas visibles. Si sus datos pueden leerse, también se conservan en Papelera.
+- **Reiniciar resultados** conserva nombres, IDs y grupos; limpia clasificaciones, partidos, tiempos, cierres y podio.
+- **Reiniciar competencia** limpia equipos y resultados y deja una configuración nueva utilizable. Si una configuración no se puede leer, se usa una configuración inicial de 32 equipos que puedes modificar.
+
+Siempre se conserva un respaldo de las entradas anteriores en la hoja interna **Recuperaciones**, descargable desde **Respaldos de recuperación**. Se conservan las demás competencias y sus entradas manuales pendientes. Las escrituras comprueban si hubo una edición concurrente antes de guardar; si los datos cambiaron, actualiza y vuelve a intentar. La recuperación no sustituye las correcciones normales: puedes cambiar nombres o clasificaciones anteriores sin reiniciar todo.
+
 ## Modo público y administrador
 
 El público ve únicamente **Inicio**, **Fases** y **Podio**. No puede elegir la competencia. **Inicio** muestra la etapa publicada y sus participantes; Grupos conserva sus tarjetas y cada ronda posterior reúne todos los participantes en un único panel de columnas adaptables, sin dividir la ronda en bloques numerados ni ofrecer descargas CSV públicas. Los nombres visibles son 16avos de final, Octavos de final, Cuartos de final, Semifinal y Final. **Fases** presenta un árbol simétrico con el campeón al centro, rondas pendientes y estados de los equipos. Puedes ampliar los nombres o ver el árbol desde otra ronda; en clasificación libre sus líneas conectan etapas y no definen rivales.
 
-Para iniciar sesión, pulsa discretamente **EQUIPO STEM 2026** bajo el título de la barra lateral e introduce la contraseña. El administrador dispone de **Publicación**, **Configuración**, **Equipos**, **Grupos**, **Eliminatorias**, **Historial** y **Administración**, además de las tres vistas públicas. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
+Para iniciar sesión, pulsa discretamente **EQUIPO STEM 2026** bajo el título de la barra lateral e introduce la contraseña. El administrador dispone de **Publicación**, **Configuración**, **Equipos**, **Grupos**, **Eliminatorias** (o **Registro de tiempos**), **Historial** y **Administración**, además de las tres vistas públicas. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
 
 ### Elegir qué ve el público
 

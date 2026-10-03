@@ -11,6 +11,9 @@ from core.podium_sheet import PODIUM_HEADER
 
 HEADERS = {
     "Podio": list(PODIUM_HEADER),
+    "Recuperaciones": ["id", "parte", "datos"],
+    "Tiempos": ["competencia", "fase", "id_equipo", "intento_1", "intento_2", "intento_3", "fallos", "sancion", "desempate"],
+    "Cierres": ["competencia", "fase"],
     "Publicacion": ["competencia"],
     "Papelera": ["id_archivo", "parte", "datos"],
     "Configuracion": ["competencia", "campo", "valor"],
@@ -61,7 +64,7 @@ def records(rows: list[list], tab: str) -> list[dict]:
             for row in rows[1:] if any(str(v).strip() for v in row)]
 
 
-def decode(tables: dict) -> State:
+def decode(tables: dict, validate=True) -> State:
     state, configs = State(), {}
     publication = records(tables.get("Publicacion", []), "Publicacion")
     if len(publication) > 1:
@@ -84,6 +87,17 @@ def decode(tables: dict) -> State:
             state.archived[archive_id] = State.from_dict({"competitions": {"saved": data}}).competitions["saved"]
         except (ValueError, KeyError, TypeError):
             raise ValidationError("Respaldo inválido en Papelera.") from None
+    recovery_parts = {}
+    for row in records(tables.get("Recuperaciones", []), "Recuperaciones"):
+        chunks = recovery_parts.setdefault(str(row["id"]), {})
+        part = entero(row["parte"])
+        if part < 1 or part in chunks:
+            raise ValidationError("Respaldo de recuperación duplicado.")
+        chunks[part] = str(row["datos"])
+    for key, chunks in recovery_parts.items():
+        if sorted(chunks) != list(range(1, len(chunks)+1)):
+            raise ValidationError("Respaldo de recuperación incompleto.")
+        state.recovery_backups[key] = json.loads("".join(chunks[i] for i in sorted(chunks)))
     allowed = {f.name for f in fields(Config)}
     for row in records(tables.get("Configuracion", []), "Configuracion"):
         name, key, value = str(row["competencia"]), str(row["campo"]), row["valor"]
@@ -122,12 +136,31 @@ def decode(tables: dict) -> State:
         tid=str(row['id_equipo'])
         if tid in entries: raise ValidationError('Registro duplicado en Rondas.')
         entries[tid]=str(row['estado'])
-    validar_estado(state)
+    for row in records(tables.get("Tiempos", []), "Tiempos"):
+        name, phase, tid = str(row["competencia"]), str(row["fase"]), str(row["id_equipo"])
+        if name not in state.competitions:
+            raise ValidationError("Tiempo de una competencia desconocida.")
+        entries = state.competitions[name].timing.setdefault(phase, {})
+        if tid in entries:
+            raise ValidationError("Tiempo duplicado.")
+        entries[tid] = {"intentos": [str(row[f"intento_{i}"] or "") for i in (1, 2, 3)],
+                        "fallos": entero(row["fallos"] or 0), "sancion": str(row["sancion"] or "Sin sanción"),
+                        "desempate": entero(row["desempate"] or 0)}
+    for row in records(tables.get("Cierres", []), "Cierres"):
+        name = str(row["competencia"])
+        if name not in state.competitions:
+            raise ValidationError("Cierre de una competencia desconocida.")
+        state.competitions[name].closed_phases.append(str(row["fase"]))
+    if validate:
+        validar_estado(state)
     return state
 
 
 def clasificados_actuales(c: Competition) -> tuple[str, list[str]]:
     from core.eliminatorias import fase_para
+    if c.config.sistema == 'Tiempos':
+        phase = next(reversed(c.rounds)) if c.rounds else "Inscripción"
+        return phase, list(c.rounds.get(phase, {}))
     if c.config.sistema == 'Libre':
         from core.free_rounds import active
         return ('Campeón' if c.config.campeon else c.config.fase_actual), list(active(c))
@@ -146,6 +179,10 @@ def encode(state: State) -> dict[str, list[list]]:
     tables = {tab: [list(header)] for tab, header in HEADERS.items()}
     if state.public_competition:
         tables["Publicacion"].append([state.public_competition])
+    for key, backup in state.recovery_backups.items():
+        data = json.dumps(backup, ensure_ascii=False)
+        for offset in range(0, len(data), 30000):
+            tables["Recuperaciones"].append([key, offset//30000+1, data[offset:offset+30000]])
     for archive_id, c in state.archived.items():
         data = json.dumps(asdict(c), ensure_ascii=False)
         for offset in range(0, len(data), 30000):
@@ -158,6 +195,11 @@ def encode(state: State) -> dict[str, list[list]]:
             tables["Equipos"].append(list(asdict(t).values()))
         for phase,entries in c.rounds.items():
             for tid,status in entries.items():tables['Rondas'].append([name,phase,tid,status])
+        for phase, entries in c.timing.items():
+            for tid, entry in entries.items():
+                tables["Tiempos"].append([name, phase, tid, *entry["intentos"], entry["fallos"], entry["sancion"], entry["desempate"]])
+        for phase in c.closed_phases:
+            tables["Cierres"].append([name, phase])
         for t in c.reserve:
             tables["Reserva"].append(list(asdict(t).values()))
         if c.config.torneo_iniciado:
