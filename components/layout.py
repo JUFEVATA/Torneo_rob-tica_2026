@@ -121,7 +121,7 @@ def group_cards(c):
         for t in teams:
             style = "ok" if t.clasificado else "out" if t.estado == "Eliminado" else ""
             rows += f'<div class="team-row"><span>{escape(t.nombre_equipo)}</span><span class="badge {style}">{escape({'Clasificado': 'Clasifica', 'Eliminado': 'No clasifica'}.get(t.estado, t.estado))}</span></div>'
-        cards.append(f'<div class="group-card"><div class="group-head">Equipo {i+1}<span class="group-count">{len(teams):02d}</span></div>{rows}</div>')
+        cards.append(f'<div class="group-card"><div class="group-head">Grupo {group}<span class="group-count">{len(teams):02d}</span></div>{rows}</div>')
     st.markdown('<div class="group-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
 
 

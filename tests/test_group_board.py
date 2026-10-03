@@ -16,7 +16,7 @@ class BoardTests(unittest.TestCase):
         resize_groups(c,54,8,32)
         validar_estado(state)
         rows=board_rows(state)
-        self.assertEqual([value(rows,8,col) for col in range(0,24,4)],[f'Equipo {n}' for n in range(1,7)])
+        self.assertEqual([value(rows,8,col) for col in range(0,24,4)],[f'Grupo {g}' for g in 'ABCDEF'])
         self.assertEqual([sum(t.grupo==g for t in c.teams) for g in 'ABCDEFGH'],[7,7,7,7,7,7,6,6])
         self.assertEqual(apply_sheet_edits(state,stage_tables(state)),state)
         self.assertEqual(decode(encode(state)),state)

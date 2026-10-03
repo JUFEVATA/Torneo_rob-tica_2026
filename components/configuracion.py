@@ -72,7 +72,7 @@ def render(state, c, mode, revision, admin):
 def import_form(mode, revision):
     with st.expander("Importar una lista con grupos ya asignados"):
         with st.form("import_groups"):
-            text = st.text_area("Lista completa", height=250, placeholder="Competencia: Sumo\nParticipantes: 8 | Grupos: 2\nEquipo 1\n• Nombre del equipo")
+            text = st.text_area("Lista completa", height=250, placeholder="Competencia: Sumo\nParticipantes: 8 | Grupos: 2\nGrupo A\n• Nombre del equipo")
             if st.form_submit_button("Importar grupos"):
                 from core.sheet_flow import parse_rosters, import_roster
                 from core.models import ValidationError

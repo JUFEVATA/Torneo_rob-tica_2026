@@ -94,7 +94,7 @@ def parse_rosters(rows: list[list]) -> list[Roster]:
             if lower in ('equipo', 'nombre del equipo', 'estado'):
                 continue
             if not group:
-                raise ValidationError(f'Falta el encabezado Equipo 1 / Grupo A antes de: {line[:60]}.')
+                raise ValidationError(f'Falta el encabezado Grupo A antes de: {line[:60]}.')
             name = re.sub(r'^[•●▪\-]\s*', '', line).strip().replace('\\_', '_')
             status = str(row[1]).strip() if len(lines) == 1 and len(row) > 1 else ''
             status = status or 'Pendiente'
@@ -182,7 +182,7 @@ def group_rows(state: State) -> list[list]:
                      ['Nombre del equipo', 'Estado', 'id_equipo']])
         for i in range(c.config.numero_grupos):
             group = nombre_columna(i + 1)
-            rows.append([f'Equipo {i+1}'])
+            rows.append([f'Grupo {group}'])
             rows.extend([[f'• {t.nombre_equipo}', TO_PUBLIC[t.estado], t.id_equipo]
                          for t in c.teams if t.grupo == group])
             rows.append([])

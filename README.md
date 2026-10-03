@@ -4,7 +4,7 @@ Aplicación Python/Streamlit conectada a Google Sheets. El libro conserva los eq
 
 ## Uso del torneo
 
-La primera pestaña visible del libro es **Grupos**, organizada en tarjetas **Equipo 1, Equipo 2…**, hasta seis por fila, con colores EPM. Cada equipo tiene un desplegable con **Pendiente**, **Clasifica** y **No clasifica**. Las siguientes pestañas son **16 avos**, **8vos**, **4tos**, **Semifinal** y **Final**. Se conserva cada fase anterior como historial.
+La primera pestaña visible del libro es **Grupos**, organizada en tarjetas **Grupo A, Grupo B…**, hasta seis por fila, con colores EPM. Cada equipo tiene un desplegable con **Pendiente**, **Clasifica** y **No clasifica**. Las siguientes pestañas son **16 avos**, **8vos**, **4tos**, **Semifinal** y **Final**. Se conserva cada fase anterior como historial.
 
 ### Seleccionar cantidades desde la hoja
 
@@ -27,7 +27,7 @@ Los desplegables ofrecen cantidades habituales; también puedes escribir un ente
 
 ### Introducir participantes y avanzar
 
-1. En Grupos, introduce el listado con el formato del [ejemplo de 85 equipos](examples/sumo2026.txt). Para importar una lista completa, entra a editar **A1** (doble clic) y pega todo el texto dentro de esa única celda. No pegues sobre varias tarjetas. La app lo organiza en tarjetas y añade los desplegables al sincronizar. Conserva el encabezado `Competencia: Sumo` y las secciones `Equipo 1`, `Equipo 2`… También puedes importar desde **Competencia → Configuración → Importar una lista con grupos ya asignados** como administrador.
+1. En Grupos, introduce el listado con el formato del [ejemplo de 85 equipos](examples/sumo2026.txt). Para importar una lista completa, entra a editar **A1** (doble clic) y pega todo el texto dentro de esa única celda. No pegues sobre varias tarjetas. La app lo organiza en tarjetas y añade los desplegables al sincronizar. Conserva el encabezado `Competencia: Sumo` y las secciones `Grupo A`, `Grupo B`… (también se acepta el formato antiguo `Equipo 1`, `Equipo 2` para importar archivos existentes). También puedes importar desde **Competencia → Configuración → Importar una lista con grupos ya asignados** como administrador.
 2. El grupo original se conserva: no se vuelve a sortear. Los 85 equipos del ejemplo están repartidos **22 / 21 / 21 / 21**. Todos empiezan Pendiente; se configuran **32 cupos** para dieciseisavos. Nuevas listas usan la mayor potencia de dos posible, hasta 32; el administrador puede modificar los cupos antes de iniciar eliminatorias.
 3. Marca **Clasifica** junto a cualquier equipo. Aparece en **16 avos** al sincronizar, sin esperar a resolver todos los grupos.
 4. En cada ronda eliges libremente **Clasifica**, **No clasifica** o **Pendiente**. No hay parejas obligatorias ni perdedores automáticos. Cada seleccionado aparece en la siguiente hoja.

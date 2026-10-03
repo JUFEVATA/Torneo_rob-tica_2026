@@ -35,7 +35,7 @@ def board_rows(state):
             band=[['']*(len(groups)*STRIDE) for _ in range(max(map(len,members))+1)]
             for k,(g,teams) in enumerate(zip(groups,members)):
                 col=k*STRIDE
-                band[0][col:col+3]=[f'Equipo {start+k+1}',f'{len(teams):02d}',f'group:{g}']
+                band[0][col:col+3]=[f'Grupo {g}',f'{len(teams):02d}',f'group:{g}']
                 for r,t in enumerate(teams,1):
                     band[r][col:col+3]=[t.nombre_equipo,PUBLIC[t.estado],t.id_equipo]
             rows += band+[[],[]]
