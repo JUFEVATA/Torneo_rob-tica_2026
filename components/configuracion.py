@@ -3,11 +3,11 @@ import streamlit as st
 from core.models import Config
 from core.tournament import configurar, crear_competencia_lista, iniciar_grupos
 from services.runtime import execute
+from core import line_racing as racing
 
 
 def timed_quota_choices(total):
-    choices = [n for n in (16, 32) if n <= total]
-    return choices or [max(n for n in (2, 4, 8, 16, 32) if n <= total)]
+    return racing.quota_choices(total)
 
 
 def create_form(state, mode, revision):
@@ -49,10 +49,14 @@ def render(state, c, mode, revision, admin):
     st.subheader(cfg.competencia)
     timed = cfg.sistema == "Tiempos"
     if timed:
-        route = "32 → 16 → 8 → 4 → podio" if cfg.cupos_clasificados >= 32 else "16 → 8 → 4 → podio"
+        route = f"Clasificatoria → {cfg.cupos_clasificados} → {racing.capacity(c, 'Linea2')} → Final ({racing.capacity(c, 'Linea3')}) → podio"
         st.caption(f"Seguidor de línea por tiempos · {route} · tres fallos nuevos por fase.")
     else:
         st.caption("Clasificación libre" if cfg.sistema == "Libre" else "Enfrentamientos")
+        with st.expander("Usar esta competencia como Seguidor de línea"):
+            st.caption("Habilita las hojas de tiempos conservando equipos y grupos. Solo se puede cambiar mientras no existan resultados.")
+            if st.button("Habilitar Seguidor de línea por tiempos"):
+                execute(mode, revision, lambda s: racing.enable_timing(s, cfg.competencia), "Hojas de tiempos habilitadas; equipos y grupos conservados.")
     with st.form("competition_settings_" + cfg.competencia):
         a, b = st.columns(2)
         locked = bool(c.matches or any(t.estado != "Pendiente" for t in c.teams) or c.closed_phases or any(any(r["intentos"]) or r["fallos"] or r["sancion"] != "Sin sanción" for phase in c.timing.values() for r in phase.values()))
@@ -62,7 +66,7 @@ def render(state, c, mode, revision, admin):
         if timed:
             choices = timed_quota_choices(total)
             current = cfg.cupos_clasificados if cfg.cupos_clasificados in choices else choices[0]
-            cupos = b.selectbox("Clasificados a la siguiente fase", choices, index=choices.index(current), disabled=locked)
+            cupos = b.selectbox("Clasificados a la siguiente fase", choices, index=choices.index(current), disabled="Linea1" in c.closed_phases)
         else:
             cupos = b.selectbox("Equipos que avanzan", [2,4,8,16,32,64], index=[2,4,8,16,32,64].index(cfg.cupos_clasificados), disabled=locked)
         method = st.selectbox("Distribución", ["Orden original", "Sorteo aleatorio"], index=int(cfg.metodo_grupos == "Sorteo aleatorio"))
@@ -91,7 +95,7 @@ def import_form(mode, revision):
         with st.form("import_groups"):
             kind = st.selectbox(
                 "Tipo de competencia de la lista",
-                ["Clasificación libre", "Seguidor de línea por tiempos"],
+                ["Conservar tipo existente", "Clasificación libre", "Seguidor de línea por tiempos"],
                 help="Selecciona tiempos para que se regeneren las cuatro hojas SL Fase.",
             )
             text = st.text_area("Lista completa", height=250, placeholder="Competencia: Sumo\nParticipantes: 8 | Grupos: 2\nGrupo A\n• Nombre del equipo")
@@ -103,5 +107,6 @@ def import_form(mode, revision):
                     if not rosters:
                         raise ValidationError("Pega el listado con su encabezado Competencia:.")
                     for roster in rosters:
-                        import_roster(s, roster, sistema="Tiempos" if kind == "Seguidor de línea por tiempos" else "Libre")
+                        sistema = {"Seguidor de línea por tiempos": "Tiempos", "Clasificación libre": "Libre"}.get(kind)
+                        import_roster(s, roster, sistema=sistema)
                 execute(mode, revision, operation, "Lista importada con su distribución original.")

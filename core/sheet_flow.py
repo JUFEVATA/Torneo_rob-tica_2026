@@ -122,6 +122,11 @@ def parse_rosters(rows: list[list]) -> list[Roster]:
 
 def import_roster(state: State, roster: Roster, replace=False, sistema=None) -> None:
     existing = state.competitions.get(roster.name)
+    if existing and sistema is not None and sistema != existing.config.sistema:
+        if sistema != 'Tiempos':
+            raise ValidationError('Conserva el tipo existente para importar equipos sin perder resultados de tiempos.')
+        from core.line_racing import enable_timing
+        enable_timing(state, roster.name)
     previous = {normalizar(t.nombre_equipo): t for t in existing.teams + existing.reserve} if existing else {}
     previous_ids = {t.id_equipo: t for t in existing.teams + existing.reserve} if existing else {}
     cupos = existing.config.cupos_clasificados if existing else min(32, max(n for n in FASES if n <= len(roster.entries)))

@@ -107,6 +107,44 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(saved.timing['Linea1'][c.teams[0].id_equipo]['intentos'],['00:32.125','No terminó','No terminó'])
         self.page(at,'Configuración');self.page(at,'Historial');self.page(at,'Administración')
 
+    def test_admin_repairs_type_without_importing_roster_again(self):
+        from core.tournament import crear_competencia_lista
+        _, rev = self.repo.read()
+        self.repo.transact(rev, lambda s: crear_competencia_lista(s, Config('Seguidor de Linea', 40, 4, cupos_clasificados=32, sistema='Libre')))
+        before = self.repo.read()[0].competitions['Seguidor de Linea'].teams
+        at = self.app(True); self.page(at, 'Configuración')
+        widget(at.button, 'Habilitar Seguidor de línea por tiempos').click().run()
+        self.assertFalse(at.exception); self.assertFalse(at.error)
+        saved = self.repo.read()[0].competitions['Seguidor de Linea']
+        self.assertEqual(saved.teams, before)
+        self.assertEqual(saved.config.sistema, 'Tiempos')
+        self.assertIn('Registro de tiempos', widget(at.radio, 'Navegación').options)
+
+    def test_admin_saves_single_attempt_and_selects_32_at_closure(self):
+        from tests.test_line_racing import line_state
+        from core import line_racing as race
+        state, c = line_state(40)
+        for i, t in enumerate(c.teams[1:], 1):
+            race.set_record(c, 'Linea1', t.id_equipo, {**race.blank_record(), 'intentos': [race.format_time(20000+i), '', '']})
+        _, rev = self.repo.read()
+        self.repo.transact(rev, lambda s: s.competitions.update(state.competitions))
+        at = self.app(True); self.page(at, 'Registro de tiempos')
+        widget(at.selectbox, 'Resultado intento 1').set_value('Tiempo')
+        widget(at.number_input, 'Segundos intento 1').set_value(19)
+        widget(at.button, 'Guardar tiempos').click().run()
+        self.assertFalse(at.exception); self.assertFalse(at.error)
+        saved = self.repo.read()[0].competitions[c.config.competencia]
+        self.assertEqual(saved.timing['Linea1'][c.teams[0].id_equipo]['intentos'], ['00:19.000', '', ''])
+        self.page(at, 'Configuración')
+        self.assertFalse(widget(at.selectbox, 'Clasificados a la siguiente fase').disabled)
+        self.page(at, 'Registro de tiempos')
+        widget(at.selectbox, 'Clasificados a la siguiente fase').set_value(32)
+        widget(at.checkbox, 'Confirmo que los tiempos de esta fase son definitivos').check()
+        widget(at.button, 'Cerrar fase y clasificar').click().run()
+        self.assertFalse(at.exception); self.assertFalse(at.error)
+        saved = self.repo.read()[0].competitions[c.config.competencia]
+        self.assertEqual(len(saved.rounds['Linea2']), 32)
+
     def test_admin_can_recover_even_when_initial_state_invalid(self):
         import json
         self.load_tournament();data=json.loads(self.repo.path.read_text())

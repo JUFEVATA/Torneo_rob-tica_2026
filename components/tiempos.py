@@ -21,24 +21,24 @@ def phase_card(c, phase):
         items.append('<div class="team-row"><div class="race-team-content"><div class="race-team-head"><strong>' +
                      escape(row["Equipo"]) + '</strong><span class="badge ' + badge + '">' + escape(row["Estado"]) +
                      '</span></div><div class="race-detail">' + escape(detail) + '</div>' + time_html + '</div></div>')
-    st.markdown('<div class="group-card phase-card"><div class="group-head">' + escape(racing.LABELS[phase]) +
+    st.markdown('<div class="group-card phase-card"><div class="group-head">' + escape(racing.phase_label(c, phase)) +
                 '<span class="group-count">' + str(len(rows)) + ' equipos · ' + ('Cerrada' if phase in c.closed_phases else 'En curso') +
                 '</span></div><div class="phase-columns">' + ''.join(items) + '</div></div>', unsafe_allow_html=True)
 
 
 def phases_view(c):
     st.markdown('<div class="race-flow">' + ''.join(
-        '<div class="race-step"><strong>' + escape(racing.LABELS[p]) + '</strong><span>' +
+        '<div class="race-step"><strong>' + escape(racing.phase_label(c, p)) + '</strong><span>' +
         (str(len(c.rounds[p])) + ' equipos' if p in c.rounds else 'Por definir') + '</span><small>' +
         ('Cerrada' if p in c.closed_phases else 'En curso' if p in c.rounds else 'Pendiente') + '</small></div>'
         for p in racing.PHASES) + '</div>', unsafe_allow_html=True)
-    phase = st.selectbox("Consultar fase", racing.PHASES, index=racing.PHASES.index(next(reversed(c.rounds), "Linea1")), format_func=racing.LABELS.get)
+    phase = st.selectbox("Consultar fase", racing.PHASES, index=racing.PHASES.index(next(reversed(c.rounds), "Linea1")), format_func=lambda p: racing.phase_label(c, p))
     phase_card(c, phase)
 
 
 def render(c, mode, revision):
     st.header("Registro de tiempos")
-    st.caption("Tres intentos por fase · máximo 01:30.000 por recorrido · tres fallos nuevos en cada fase · máximo dos integrantes por equipo.")
+    st.caption("Hasta tres intentos por fase · puedes guardar y confirmar con un solo intento · máximo 01:30.000 por recorrido · tres fallos nuevos en cada fase.")
     with st.expander("Reglas de pista para el juez"):
         st.write("Un robot por equipo. Máximo dos integrantes. Tres intentos en cada fase; cuenta el menor tiempo válido. Tres fallos penalizados en una fase descalifican al equipo. Los fallos al perder la línea o por intervención los registra el juez.")
         st.write("Tiempo de reparación previo a la ronda: un minuto. Presentación: un minuto de tolerancia; después, el juez registra No presentó. Espera de salida: dos segundos. Estas esperas no se suman al tiempo del recorrido. Los jueces deciden sanciones y empates.")
@@ -46,7 +46,7 @@ def render(c, mode, revision):
     if not phases:
         st.info("Completa los equipos y genera los grupos desde Configuración para iniciar.")
         return
-    phase = st.selectbox("Fase a registrar", phases, index=len(phases)-1, format_func=racing.LABELS.get)
+    phase = st.selectbox("Fase a registrar", phases, index=len(phases)-1, format_func=lambda p: racing.phase_label(c, p))
     with st.expander("Consultar clasificación de esta fase"):
         phase_card(c, phase)
     ids = list(c.rounds[phase])
@@ -74,14 +74,20 @@ def render(c, mode, revision):
             updated = {"intentos": attempts, "fallos": faults, "sancion": sanction, "desempate": order}
             execute(mode, revision, lambda s: racing.set_record(s.competitions[c.config.competencia], phase, tid, updated), "Tiempos guardados; clasificación recalculada.")
     with st.form("race_close_" + phase):
-        st.write("Avanzan los " + str(racing.capacity(c, phase)) + " mejores tiempos válidos." if phase != "Linea4" else "Los tres mejores tiempos válidos definen el podio.")
+        quota = None
+        if phase == "Linea1":
+            choices = racing.quota_choices(c.config.numero_equipos)
+            quota = st.selectbox("Clasificados a la siguiente fase", choices, index=choices.index(c.config.cupos_clasificados) if c.config.cupos_clasificados in choices else 0, disabled=phase in c.closed_phases)
+            st.caption("Elige hasta cuántos equipos avanzan. Basta un intento registrado por equipo; los otros dos pueden quedar pendientes.")
+        else:
+            st.write("Avanzan los " + str(racing.capacity(c, phase)) + " mejores tiempos válidos." if phase != "Linea4" else "Los tres mejores tiempos válidos definen el podio.")
         confirm = st.checkbox("Confirmo que los tiempos de esta fase son definitivos")
         if st.form_submit_button("Cerrar fase y clasificar", type="primary", disabled=phase in c.closed_phases):
             def close(state):
                 if not confirm:
                     from core.models import ValidationError
                     raise ValidationError("Confirma los tiempos antes de cerrar la fase.")
-                racing.close_phase(state.competitions[c.config.competencia], phase)
+                racing.close_phase(state.competitions[c.config.competencia], phase, quota=quota)
             execute(mode, revision, close, "Fase cerrada; participantes de la siguiente fase actualizados.")
 
 
@@ -91,7 +97,7 @@ def history(c):
         current = {r["id"]: r for r in racing.standings(c, phase)}
         for tid, record in c.timing.get(phase, {}).items():
             result = current.get(tid, {})
-            entry = {"Fase": racing.LABELS[phase], "Equipo": c.name(tid)}
+            entry = {"Fase": racing.phase_label(c, phase), "Equipo": c.name(tid)}
             for i, attempt in enumerate(record["intentos"], 1):
                 entry.update({f"Intento {i} · {unit}": part for unit, part in zip(['Minutos', 'Segundos', 'Milisegundos'], racing.time_parts(attempt))})
                 entry[f"Resultado intento {i}"] = attempt if attempt in racing.FAILED else "Tiempo" if attempt else "Pendiente"

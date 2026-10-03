@@ -49,9 +49,9 @@ class GoogleSheetsRepository:
         self._initialized = False
         self.group_rule_count = 0
 
-    def initialize(self):
+    def initialize(self, refresh=False):
         with _LOCK:
-            if self._initialized and all(tab in self.properties for tab in MANAGED_TABS):
+            if not refresh and self._initialized and all(tab in self.properties for tab in MANAGED_TABS):
                 return
             metadata = self.spreadsheet.fetch_sheet_metadata()
             self.properties = {s["properties"]["title"]: s["properties"] for s in metadata["sheets"]}
@@ -77,7 +77,9 @@ class GoogleSheetsRepository:
             self._initialized = True
 
     def _tables(self):
-        self.initialize()
+        # Una pestaña puede haberse borrado u ocultado desde Excel/Sheets
+        # después de crear este cliente compartido entre sesiones.
+        self.initialize(refresh=True)
         response = self.spreadsheet.values_batch_get(
             [f"'{tab}'" for tab in MANAGED_TABS],
             params={"valueRenderOption": "UNFORMATTED_VALUE"})

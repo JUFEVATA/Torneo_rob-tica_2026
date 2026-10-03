@@ -4,7 +4,7 @@ import re
 from core.models import ValidationError
 
 PHASES = ["Linea1", "Linea2", "Linea3", "Linea4"]
-LABELS = dict(zip(PHASES, ["Fase 1 · Clasificatoria", "Fase 2 · Mejores 16", "Fase 3 · Mejores 8", "Fase 4 · Final"]))
+LABELS = dict(zip(PHASES, ["Fase 1 · Clasificatoria", "Fase 2", "Fase 3", "Fase 4 · Final"]))
 SHEETS = dict(zip(PHASES, ["SL Fase 1", "SL Fase 2", "SL Fase 3", "SL Final"]))
 CAPACITIES = dict(zip(PHASES, [16, 8, 4, 3]))
 FAILED = ("Fallo", "No terminó", "No presentó")
@@ -22,12 +22,57 @@ GROUP_HEADER = ["N.º", "Grupo", "Equipo", "INTENTO 1", "", "", "INTENTO 2", "",
 
 def capacities(c):
     """Cantidad de clasificados después de cada fase de tiempos."""
-    first = 32 if getattr(c.config, "cupos_clasificados", 16) >= 32 else 16
-    return dict(zip(PHASES, [first, first // 2, first // 4, 4 if first == 32 else 3]))
+    first = c.config.cupos_clasificados
+    return dict(zip(PHASES, [first, max(2, first // 2), max(2, first // 4), 3]))
 
 
 def capacity(c, phase):
     return capacities(c)[phase]
+
+
+def quota_choices(total):
+    choices = [n for n in (16, 32) if n <= total]
+    return choices or [max(n for n in (2, 4, 8) if n <= total)]
+
+
+def set_quota(c, quota):
+    if quota not in quota_choices(c.config.numero_equipos):
+        raise ValidationError("Selecciona 16 o 32 clasificados sin superar los equipos inscritos.")
+    if "Linea1" in c.closed_phases and quota != c.config.cupos_clasificados:
+        raise ValidationError("Reabre la primera fase antes de cambiar los clasificados.")
+    c.config.cupos_clasificados = quota
+    reconcile(c)
+
+
+def phase_label(c, phase):
+    if phase in ("Linea2", "Linea3"):
+        index = PHASES.index(phase)
+        return f"Fase {index + 1} · Mejores {capacity(c, PHASES[index - 1])}"
+    return LABELS[phase]
+
+
+def enable_timing(state, name):
+    """Repara el tipo conservando la inscripción y un respaldo completo."""
+    from dataclasses import asdict
+    from datetime import datetime, timezone
+    from core.models import new_id
+    c = state.competitions[name]
+    if c.config.sistema == "Tiempos":
+        return
+    if c.matches or c.timing or c.closed_phases or any(t.estado != "Pendiente" for t in c.teams) or any(c.rounds.values()) or c.config.campeon or any(getattr(c.config, f"puesto_{n}") for n in (1, 2, 3)):
+        raise ValidationError("La competencia ya tiene resultados. Reinicia los resultados antes de cambiar a tiempos.")
+    state.recovery_backups[new_id()] = {"competencia": name, "accion": "Habilitar tiempos", "fecha": datetime.now(timezone.utc).isoformat(), "competencia_anterior": asdict(c)}
+    c.config.sistema = "Tiempos"
+    c.config.etapa_publica = ""
+    c.config.regla_fallos = "Por fase"
+    choices = quota_choices(c.config.numero_equipos)
+    if c.config.cupos_clasificados not in choices:
+        c.config.cupos_clasificados = choices[0]
+    if not c.config.torneo_iniciado:
+        from core.tournament import iniciar_grupos
+        iniciar_grupos(c, genericos=True)
+    else:
+        reconcile(c)
 
 
 def milliseconds(minutes, seconds, millis):
@@ -154,7 +199,11 @@ def set_record(c, phase, tid, record):
     reconcile(c)
 
 
-def close_phase(c, phase):
+def close_phase(c, phase, quota=None):
+    if quota is not None:
+        if phase != "Linea1":
+            raise ValidationError("Los cupos iniciales se eligen en la primera fase.")
+        set_quota(c, quota)
     if not c.rounds.get(phase):
         raise ValidationError("La fase no tiene participantes; completa y cierra la anterior.")
     error = closing_error(c, phase, list(c.rounds[phase]))
@@ -246,7 +295,9 @@ def attempt_from_cells(parts, outcome):
 
 
 def sheet_rows(state, phase):
-    rows = [["SEGUIDOR DE LÍNEA · " + LABELS[phase]], ["MM = minutos · SS = segundos · MS = milisegundos. Registra los intentos disponibles, incluidos los ceros; deja vacíos los que no se realicen. Límite: 01 | 30 | 000."], list(GROUP_HEADER), list(HEADER)]
+    labels = {phase_label(c, phase) for c in state.competitions.values() if c.config.sistema == "Tiempos"}
+    title = next(iter(labels)) if len(labels) == 1 else f"Fase {PHASES.index(phase) + 1}"
+    rows = [["SEGUIDOR DE LÍNEA · " + title], ["MM = minutos · SS = segundos · MS = milisegundos. Registra los intentos disponibles, incluidos los ceros; deja vacíos los que no se realicen. Límite: 01 | 30 | 000."], list(GROUP_HEADER), list(HEADER)]
     for name, c in state.competitions.items():
         if c.config.sistema != "Tiempos": continue
         rows += [["Competencia: " + name], ["Estado de fase", "", "", "Cerrada" if phase in c.closed_phases else "Abierta"]]

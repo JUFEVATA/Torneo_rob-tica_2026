@@ -63,6 +63,50 @@ class CreationTests(unittest.TestCase):
                 and r['updateSheetProperties']['properties'].get('hidden') is False
                 for r in server.writes[-1]['requests']))
 
+    def test_force_delete_then_recreate_preserves_other_tournament_and_tabs(self):
+        server = FakeSpreadsheet(); repo = GoogleSheetsRepository(server)
+        _, rev = repo.read()
+        def setup(s):
+            crear_competencia_lista(s, Config('Sumo', 8, 2, cupos_clasificados=4, sistema='Libre'))
+            crear_competencia_lista(s, Config('Línea', 40, 4, cupos_clasificados=32, sistema='Tiempos'))
+        state, rev = repo.transact(rev, setup)
+        other = deepcopy(state.competitions['Sumo'])
+        ids = {tab: server.props[tab]['sheetId'] for tab in race.SHEETS.values()}
+        state, rev = repo.recover(rev, 'Línea', 'Eliminar')
+        state, rev = repo.read()
+        for tab, sid in ids.items():
+            self.assertEqual(server.props[tab]['sheetId'], sid)
+            self.assertFalse(server.props[tab]['hidden'])
+        state, rev = repo.transact(rev, lambda s: crear_competencia_lista(s, Config('Línea', 47, 4, cupos_clasificados=32, sistema='Tiempos')))
+        self.assertEqual(state.competitions['Sumo'], other)
+        self.assertEqual(len(state.competitions['Línea'].timing['Linea1']), 47)
+        self.assertEqual(len(server.tables['SL Fase 1']), 53)
+        self.assertEqual(repo.read()[0], state)
+
+    def test_cached_repository_rebuilds_manually_removed_projection_tab(self):
+        server = FakeSpreadsheet(); repo = GoogleSheetsRepository(server)
+        _, rev = repo.read()
+        state, rev = repo.transact(rev, lambda s: crear_competencia_lista(s, Config('Línea', 4, 2, cupos_clasificados=4, sistema='Tiempos')))
+        del server.props['SL Fase 1']; del server.tables['SL Fase 1']
+        self.assertEqual(repo.read()[0], state)
+        self.assertEqual(len(server.tables['SL Fase 1']), 10)
+        self.assertFalse(server.props['SL Fase 1']['hidden'])
+
+    def test_enable_timing_keeps_ids_groups_and_backup_and_rejects_results(self):
+        state = State()
+        crear_competencia_lista(state, Config('Línea', 40, 4, cupos_clasificados=32, sistema='Libre'))
+        before = deepcopy(state.competitions['Línea'])
+        race.enable_timing(state, 'Línea')
+        c = state.competitions['Línea']
+        self.assertEqual(c.teams, before.teams)
+        self.assertEqual(c.config.sistema, 'Tiempos')
+        self.assertEqual(len(c.timing['Linea1']), 40)
+        self.assertTrue(state.recovery_backups)
+        validar_estado(state)
+        crear_competencia_lista(state, Config('Sumo', 4, 2, cupos_clasificados=2, sistema='Libre'))
+        state.competitions['Sumo'].teams[0].estado = 'Eliminado'
+        with self.assertRaises(ValidationError): race.enable_timing(state, 'Sumo')
+
     def test_explicit_timed_import_repairs_existing_free_competition(self):
         state = State()
         crear_competencia_lista(state, Config('Seguidor de Linea', 4, 2, cupos_clasificados=4, sistema='Libre'))

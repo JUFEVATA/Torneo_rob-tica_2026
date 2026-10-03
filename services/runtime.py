@@ -47,8 +47,8 @@ def login(password):
 
 
 @st.cache_resource
-def get_repository(mode):
-    # Schema v6: tiempos de seguidor de línea y recuperación con respaldo.
+def get_repository(mode, schema_version=7):
+    # Schema v7: reconstrucción de pestañas de tiempos con metadatos actualizados.
     if mode == "demo":
         from services.demo import seed
         repo = LocalRepository(Path(__file__).resolve().parents[1] / ".demo" / "torneo.json")

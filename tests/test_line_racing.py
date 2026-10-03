@@ -96,8 +96,32 @@ class RacingTests(unittest.TestCase):
         for phase, expected in zip(race.PHASES, [32, 32, 16, 8]):
             self.assertEqual(len(c.rounds[phase]), expected)
             finish_phase(c, phase)
-        self.assertEqual(sum(status == "Clasificado" for status in c.rounds["Linea4"].values()), 4)
+        self.assertEqual(sum(status == "Clasificado" for status in c.rounds["Linea4"].values()), 3)
         validar_estado(state)
+
+    def test_quota_can_change_at_closure_after_one_attempt_per_team(self):
+        state, c = line_state(40)
+        for i, t in enumerate(c.teams):
+            race.set_record(c, 'Linea1', t.id_equipo, {**race.blank_record(), 'intentos': [race.format_time(10000+i), '', '']})
+        before = deepcopy(c.timing['Linea1'])
+        race.close_phase(c, 'Linea1', quota=32)
+        self.assertEqual(c.timing['Linea1'], before)
+        self.assertEqual(len(c.rounds['Linea2']), 32)
+        self.assertIn('Mejores 32', race.phase_label(c, 'Linea2'))
+        validar_estado(state)
+
+    def test_partial_attempts_from_sheet_close_and_propagate(self):
+        state, c = line_state(40)
+        tables = stage_tables(state)
+        for row in tables['SL Fase 1'][6:]:
+            row[3:6] = [0, 10, row[0]]
+        tables['SL Fase 1'][5][3] = 'Cerrada'
+        # La cantidad elegida desde Grupos se aplica junto con el cierre.
+        tables['Grupos'][4][9] = 32
+        updated = apply_sheet_edits(state, tables)
+        saved = updated.competitions[c.config.competencia]
+        self.assertEqual(len(saved.rounds['Linea2']), 32)
+        self.assertEqual(saved.timing['Linea1'][c.teams[0].id_equipo]['intentos'], ['00:10.001', '', ''])
 
     def test_cutoff_tie_requires_judge_order(self):
         _, c = line_state(18)

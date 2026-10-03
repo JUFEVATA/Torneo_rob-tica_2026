@@ -1,6 +1,6 @@
-# Verificación · 2 octubre 2026
+# Verificación · 3 octubre 2026
 
-123 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+132 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -42,7 +42,7 @@ Verificaciones de recuperación y seguidor de línea:
 - Acceso de administrador y recuperación desde el error inicial comprobados con AppTest.
 - Interfaz de tiempos captura minutos, segundos y milisegundos y todas sus páginas públicas carecen de CSV.
 - Reducir el número de equipos de seguidor de línea por debajo de 16 adapta la configuración interna y conserva los nombres restantes en Reserva; no exige modificar los cupos del reglamento.
-- Selección de 16 o 32 clasificados en la primera fase; con 32 la ruta se adapta a 32 → 16 → 8 → 4 → podio.
+- Selección de 16 o 32 clasificados en la primera fase; con 32 la ruta es clasificatoria → 32 → 16 → final de 8 → podio de tres puestos.
 - Eliminar una competencia de tiempos conserva la otra competencia y el respaldo completo en Papelera.
 
 Verificación de columnas de tiempo separadas:
@@ -63,3 +63,12 @@ Verificación de creación y gestión unificada:
 - Una competencia antigua sin iniciar puede completar equipos y generar grupos en un solo paso.
 - Navegación administrativa agrupada en Competencia, Resultados/Registro de tiempos e Historial; formulario único de configuración y formulario único de eliminación/reinicio con respaldo.
 - Reiniciar la fase actual desde el formulario unificado conserva las fases anteriores.
+
+Verificación del ciclo de eliminación y recreación:
+
+- Eliminar y recrear conserva las pestañas visibles y sus identificadores, así como las otras competencias.
+- Una pestaña borrada manualmente se recupera incluso usando el repositorio en caché.
+- Habilitar tiempos conserva nombres, IDs y grupos; crea un respaldo y rechaza convertir competencias con resultados.
+- Elegir 32 al cerrar la primera fase conserva los tiempos registrados y actualiza títulos y participantes; probado también desde Sheets.
+- Guardar un solo intento por equipo permite cerrar; los otros dos permanecen pendientes.
+- Verificación en la hoja real: ambas competencias actuales tienen sus 47 equipos, cuatro grupos y las cuatro pestañas de tiempos visibles.

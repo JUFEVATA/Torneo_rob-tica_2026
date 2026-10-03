@@ -49,6 +49,10 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 
 En **Competencia → Configuración → Crear una competencia**, elige explícitamente **Seguidor de línea por tiempos**. Selecciona si la primera fase clasifica **32 o 16 equipos** a la siguiente fase, configura el total de equipos y grupos y pulsa **Crear competencia y grupos**. Puedes pegar nombres o dejar que se creen equipos editables. En esa misma acción se preparan los grupos, la primera fase y las cuatro hojas de tiempos; la nueva competencia queda seleccionada. Las tarjetas de Grupos sirven para organizar y editar la inscripción; la clasificación de esta modalidad se obtiene de los tiempos.
 
+Si una competencia existente quedó como clasificación libre, abre **Configuración → Usar esta competencia como Seguidor de línea → Habilitar Seguidor de línea por tiempos**. Conserva sus equipos y grupos y prepara las hojas sin volver a importar. Esta conversión requiere que todavía no tenga resultados; se guarda un respaldo previo. Al importar una lista, **Conservar tipo existente** evita cambiar la modalidad por accidente.
+
+Puedes elegir **16 o 32 clasificados** también al cerrar la primera fase, aunque ya hayas registrado tiempos. Con 16, las cuatro fases tienen todos → 16 → 8 → final de 4; con 32, todos → 32 → 16 → final de 8. En ambos casos el podio tiene tres puestos.
+
 Reglas del reglamento aportado, versión 2 septiembre 2026:
 
 - Cuatro fases: participan todos; avanzan los 16 mejores, después los 8 y luego los 4. Los tres mejores tiempos válidos de la cuarta fase definen el podio.
@@ -72,7 +76,7 @@ Entra como administrador y abre **Competencia → Administración → Eliminar o
 
 Selecciona el torneo y la acción, escribe su nombre exacto, marca la confirmación y pulsa **Aplicar acción**:
 
-- **Eliminar** retira la competencia y sus hojas visibles. Si sus datos pueden leerse, también se conservan en Papelera.
+- **Eliminar** retira los datos de esa competencia de las vistas, pero conserva las pestañas de Google Sheets y el formato de tiempos. Las otras competencias permanecen intactas. Si sus datos pueden leerse, también se conservan en Papelera. Al crear una nueva competencia de tiempos se rellenan automáticamente sus bloques; una pestaña de tiempos borrada manualmente se reconstruye al sincronizar.
 - **Reiniciar resultados** conserva nombres, IDs y grupos; limpia clasificaciones, partidos, tiempos, cierres y podio.
 - **Reiniciar fase actual** limpia los resultados de la etapa activa y las que dependen de ella. **Reiniciar eliminatorias** conserva la fase inicial.
 - **Reiniciar competencia** limpia equipos y resultados y deja una configuración nueva utilizable. Si una configuración no se puede leer, se usa una configuración inicial de 32 equipos que puedes modificar.

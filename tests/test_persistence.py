@@ -39,6 +39,8 @@ class FakeSpreadsheet:
                 p = request["updateSheetProperties"]["properties"]
                 title = next(t for t, v in self.props.items() if v["sheetId"] == p["sheetId"])
                 self.props[title]["gridProperties"].update(p.get("gridProperties", {}))
+                if 'hidden' in p:
+                    self.props[title]['hidden'] = p['hidden']
             if "updateCells" in request:
                 update = request["updateCells"]
                 sid = update.get("range", update.get("start"))["sheetId"]
