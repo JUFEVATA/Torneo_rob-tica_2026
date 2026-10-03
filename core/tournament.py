@@ -36,6 +36,21 @@ def crear_competencia(state: State, config: Config) -> None:
     state.competitions[config.competencia] = Competition(config)
 
 
+def crear_competencia_lista(state: State, config: Config, nombres=None, sorteo=False) -> None:
+    """Una sola acción crea la inscripción, distribuye grupos y habilita fases."""
+    prepared = State()
+    crear_competencia(prepared, config)
+    current = prepared.competitions[config.competencia]
+    if nombres:
+        agregar_equipos(current, nombres)
+    iniciar_grupos(current, sorteo=sorteo, genericos=True)
+    if current.config.sistema == "Libre":
+        from core.free_rounds import reconcile
+        reconcile(current)
+    crear_competencia(state, config)  # Valida duplicados antes de publicar el preparado.
+    state.competitions[config.competencia] = current
+
+
 def configurar(c: Competition, total: int, grupos: int, participantes: int, cupos: int) -> None:
     if c.config.torneo_iniciado:
         raise ValidationError("Reinicia la fase de grupos para cambiar la estructura.")

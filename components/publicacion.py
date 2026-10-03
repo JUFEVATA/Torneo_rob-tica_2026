@@ -14,7 +14,7 @@ def render(state, c, mode, revision):
         options = ["", *stages_for(target)]
         phase = st.selectbox("Etapa visible en Inicio", options, index=options.index(target.config.etapa_publica), key="publish_stage_" + name,
                              format_func=lambda f: "Automática según clasificaciones" if not f else LABELS[f])
-        st.caption("La etapa manual cambia la presentación. Los resultados y las clasificaciones se gestionan en Grupos y Eliminatorias.")
+        st.caption("La etapa manual cambia la presentación. Los resultados se gestionan en Registro de tiempos o Resultados.")
         if st.form_submit_button("Publicar competencia y etapa", type="primary"):
             execute(mode, revision, lambda s: publish(s, name, phase), "Publicación actualizada para todos los visitantes.")
 

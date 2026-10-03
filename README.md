@@ -27,7 +27,7 @@ Los desplegables ofrecen cantidades habituales; también puedes escribir un ente
 
 ### Introducir participantes y avanzar
 
-1. En Grupos, introduce el listado con el formato del [ejemplo de 85 equipos](examples/sumo2026.txt). Para importar una lista completa, entra a editar **A1** (doble clic) y pega todo el texto dentro de esa única celda. No pegues sobre varias tarjetas. La app lo organiza en tarjetas y añade los desplegables al sincronizar. Conserva el encabezado `Competencia: Sumo` y las secciones `Equipo 1`, `Equipo 2`… También puedes importar desde **Configuración → Importar lista de grupos** como administrador.
+1. En Grupos, introduce el listado con el formato del [ejemplo de 85 equipos](examples/sumo2026.txt). Para importar una lista completa, entra a editar **A1** (doble clic) y pega todo el texto dentro de esa única celda. No pegues sobre varias tarjetas. La app lo organiza en tarjetas y añade los desplegables al sincronizar. Conserva el encabezado `Competencia: Sumo` y las secciones `Equipo 1`, `Equipo 2`… También puedes importar desde **Competencia → Configuración → Importar una lista con grupos ya asignados** como administrador.
 2. El grupo original se conserva: no se vuelve a sortear. Los 85 equipos del ejemplo están repartidos **22 / 21 / 21 / 21**. Todos empiezan Pendiente; se configuran **32 cupos** para dieciseisavos. Nuevas listas usan la mayor potencia de dos posible, hasta 32; el administrador puede modificar los cupos antes de iniciar eliminatorias.
 3. Marca **Clasifica** junto a cualquier equipo. Aparece en **16 avos** al sincronizar, sin esperar a resolver todos los grupos.
 4. En cada ronda eliges libremente **Clasifica**, **No clasifica** o **Pendiente**. No hay parejas obligatorias ni perdedores automáticos. Cada seleccionado aparece en la siguiente hoja.
@@ -47,7 +47,7 @@ Mantén abierta la aplicación Streamlit para procesar las ediciones de Sheets. 
 
 ## Seguidor de línea por tiempos
 
-En **Configuración → Crear una competencia**, elige **Seguidor de línea por tiempos**. Configura el total de equipos y grupos, introduce los nombres y pulsa **GENERAR GRUPOS**. Las tarjetas de Grupos sirven para organizar y editar la inscripción; la clasificación de esta modalidad se obtiene de los tiempos.
+En **Competencia → Configuración → Crear una competencia**, elige explícitamente **Seguidor de línea por tiempos**. Configura el total de equipos y grupos y pulsa **Crear competencia y grupos**. Puedes pegar nombres o dejar que se creen equipos editables. En esa misma acción se preparan los grupos, la primera fase y las cuatro hojas de tiempos; la nueva competencia queda seleccionada. Las tarjetas de Grupos sirven para organizar y editar la inscripción; la clasificación de esta modalidad se obtiene de los tiempos.
 
 Reglas del reglamento aportado, versión 2 septiembre 2026:
 
@@ -68,12 +68,13 @@ En público, **Inicio** muestra la fase publicada y sus mejores tiempos; **Fases
 
 ## Recuperación forzada
 
-Entra como administrador y abre **Administración → Recuperación forzada**. Esta sección también está disponible en el mensaje de error si los datos internos impiden cargar el torneo.
+Entra como administrador y abre **Competencia → Administración → Eliminar o reiniciar competencia**. Esta sección también está disponible en el mensaje de error si los datos internos impiden cargar el torneo.
 
-Selecciona el torneo y la acción, escribe su nombre exacto, marca la confirmación y pulsa **Ejecutar recuperación**:
+Selecciona el torneo y la acción, escribe su nombre exacto, marca la confirmación y pulsa **Aplicar acción**:
 
 - **Eliminar** retira la competencia y sus hojas visibles. Si sus datos pueden leerse, también se conservan en Papelera.
 - **Reiniciar resultados** conserva nombres, IDs y grupos; limpia clasificaciones, partidos, tiempos, cierres y podio.
+- **Reiniciar fase actual** limpia los resultados de la etapa activa y las que dependen de ella. **Reiniciar eliminatorias** conserva la fase inicial.
 - **Reiniciar competencia** limpia equipos y resultados y deja una configuración nueva utilizable. Si una configuración no se puede leer, se usa una configuración inicial de 32 equipos que puedes modificar.
 
 Siempre se conserva un respaldo de las entradas anteriores en la hoja interna **Recuperaciones**, descargable desde **Respaldos de recuperación**. Se conservan las demás competencias y sus entradas manuales pendientes. Las escrituras comprueban si hubo una edición concurrente antes de guardar; si los datos cambiaron, actualiza y vuelve a intentar. La recuperación no sustituye las correcciones normales: puedes cambiar nombres o clasificaciones anteriores sin reiniciar todo.
@@ -82,11 +83,11 @@ Siempre se conserva un respaldo de las entradas anteriores en la hoja interna **
 
 El público ve únicamente **Inicio**, **Fases** y **Podio**. No puede elegir la competencia. **Inicio** muestra la etapa publicada y sus participantes; Grupos conserva sus tarjetas y cada ronda posterior reúne todos los participantes en un único panel de columnas adaptables, sin dividir la ronda en bloques numerados ni ofrecer descargas CSV públicas. Los nombres visibles son 16avos de final, Octavos de final, Cuartos de final, Semifinal y Final. **Fases** presenta un árbol simétrico con el campeón al centro, rondas pendientes y estados de los equipos. Puedes ampliar los nombres o ver el árbol desde otra ronda; en clasificación libre sus líneas conectan etapas y no definen rivales.
 
-Para iniciar sesión, pulsa discretamente **EQUIPO STEM 2026** bajo el título de la barra lateral e introduce la contraseña. El administrador dispone de **Publicación**, **Configuración**, **Equipos**, **Grupos**, **Eliminatorias** (o **Registro de tiempos**), **Historial** y **Administración**, además de las tres vistas públicas. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
+Para iniciar sesión, pulsa discretamente **EQUIPO STEM 2026** bajo el título de la barra lateral e introduce la contraseña. El menú del administrador reúne la gestión en **Competencia** (Configuración, Equipos, Publicación y Administración), **Resultados** (Grupos y Eliminatorias) o **Registro de tiempos**, e **Historial**, además de las tres vistas públicas. La configuración se guarda con un único botón y las acciones de eliminación o reinicio están en un único formulario con respaldo. Las operaciones de escritura comprueban la autenticación en el servidor. Al cerrar sesión se retiran los controles de gestión y el selector de competencia.
 
 ### Elegir qué ve el público
 
-1. Entra como administrador y abre **Publicación**.
+1. Entra como administrador y abre **Competencia → Publicación**.
 2. Selecciona **Competencia para el público**. Esa elección se comparte con todos los visitantes y se conserva al reiniciar.
 3. En **Etapa visible en Inicio**, deja **Automática según clasificaciones**, o selecciona manualmente una etapa.
 4. Pulsa **Publicar competencia y etapa**. Elegir una etapa manual cambia la presentación sin modificar clasificaciones ni resultados.
@@ -97,7 +98,7 @@ Como administrador, abre **Podio** y elige los tres equipos en **Editar puestos 
 
 ### Eliminar una competencia creada por error
 
-Selecciona la competencia como administrador y entra a **Administración → Eliminar competencia**. Escribe su nombre exacto y pulsa **Eliminar competencia**. Sale de la aplicación y de las hojas visibles; sus datos se guardan en la **Papelera**. Desde **Administración → Papelera → Restaurar competencia** recuperas configuración, equipos y resultados. Si eliminaste todas, Administración sigue disponible. La restauración no puede sobrescribir una competencia activa con el mismo nombre.
+Selecciona la competencia como administrador y entra a **Competencia → Administración → Eliminar o reiniciar competencia**. Elige **Eliminar**, escribe el nombre exacto, confirma la acción y pulsa **Aplicar acción**. Sale de la aplicación y de las hojas visibles; sus datos se guardan en la **Papelera**. Desde **Competencia → Administración → Papelera → Restaurar competencia** recuperas configuración, equipos y resultados. Si eliminaste todas, Administración sigue disponible. La restauración no puede sobrescribir una competencia activa con el mismo nombre.
 
 La contraseña procede exclusivamente de `st.secrets["admin"]["password"]`. No hay una contraseña incorporada al código. Los permisos de edición del Google Sheet son independientes de la contraseña de Streamlit: comparte el libro solo con quienes deban administrarlo.
 

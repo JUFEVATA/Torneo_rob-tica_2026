@@ -53,7 +53,17 @@ class InterfaceTests(unittest.TestCase):
         self.repo.transact(revision, lambda s: s.competitions.update(state.competitions))
 
     def page(self, at, name):
-        widget(at.radio, "Navegación").set_value(name).run()
+        if name in ["Configuración", "Equipos", "Publicación", "Administración"]:
+            widget(at.radio, "Navegación").set_value("Competencia").run()
+            widget(at.radio, "Gestionar competencia").set_value(name).run()
+        elif name in ["Grupos", "Eliminatorias"]:
+            widget(at.radio, "Navegación").set_value("Resultados").run()
+            if any(w.label == "Registrar resultados" for w in at.radio):
+                widget(at.radio, "Registrar resultados").set_value(name).run()
+            elif name == "Grupos":
+                widget(at.selectbox, "Ronda").set_value("Grupos").run()
+        else:
+            widget(at.radio, "Navegación").set_value(name).run()
         self.assertFalse(at.exception)
 
     def test_public_all_pages_have_no_write_actions(self):
@@ -103,11 +113,11 @@ class InterfaceTests(unittest.TestCase):
         data['competitions']['Sumo']['config']['numero_grupos']=999
         self.repo.path.write_text(json.dumps(data));read_state.clear()
         at=self.app(True)
-        self.assertTrue(any(w.label=='Acción forzada' for w in at.selectbox))
-        widget(at.selectbox,'Acción forzada').set_value('Reiniciar competencia')
-        widget(at.text_input,'Nombre exacto para recuperación forzada').set_value('Sumo')
-        widget(at.checkbox,'Confirmo la recuperación forzada y el respaldo de los datos anteriores').check()
-        widget(at.button,'Ejecutar recuperación').click().run()
+        self.assertTrue(any(w.label=='Acción' for w in at.selectbox))
+        widget(at.selectbox,'Acción').set_value('Reiniciar competencia')
+        widget(at.text_input,'Nombre exacto de la competencia').set_value('Sumo')
+        widget(at.checkbox,'Confirmo la acción y el respaldo de los datos anteriores').check()
+        widget(at.button,'Aplicar acción').click().run()
         self.assertFalse(at.exception)
         self.assertFalse(self.repo.read()[0].competitions['Sumo'].teams)
         self.assertTrue(self.repo.read()[0].recovery_backups)
@@ -142,10 +152,12 @@ class InterfaceTests(unittest.TestCase):
 
     def test_delete_and_restore_last_competition_from_admin(self):
         self.load_tournament();at=self.app(True);self.page(at,"Administración")
-        widget(at.button,"Eliminar competencia").click().run()
+        widget(at.selectbox,"Acción").set_value("Eliminar")
+        widget(at.button,"Aplicar acción").click().run()
         self.assertTrue(self.repo.read()[0].competitions)
-        widget(at.text_input,"Nombre de la competencia que vas a eliminar").set_value("Sumo")
-        widget(at.button,"Eliminar competencia").click().run();self.assertFalse(at.exception)
+        widget(at.text_input,"Nombre exacto de la competencia").set_value("Sumo")
+        widget(at.checkbox,"Confirmo la acción y el respaldo de los datos anteriores").check()
+        widget(at.button,"Aplicar acción").click().run();self.assertFalse(at.exception)
         self.assertFalse(self.repo.read()[0].competitions)
         self.assertEqual(len(self.repo.read()[0].archived),1)
         widget(at.button,"Restaurar competencia").click().run();self.assertFalse(at.exception)
@@ -189,18 +201,61 @@ class InterfaceTests(unittest.TestCase):
 
     def test_create_and_generate_groups_from_empty_app(self):
         at = self.app(True)
+        widget(at.selectbox, "Tipo de competencia").set_value("Clasificación libre").run()
         widget(at.text_input, "Nombre de la competencia").set_value("Seguidor")
         widget(at.number_input, "Cantidad total de equipos").set_value(10)
         widget(at.number_input, "Cantidad de grupos").set_value(3)
         widget(at.selectbox, "Equipos que avanzan").set_value(8)
-        widget(at.button, "Crear competencia").click().run()
-        self.assertFalse(at.exception)
-        self.page(at, "Configuración")
-        widget(at.checkbox, "Completar equipos faltantes con nombres genéricos").check()
-        widget(at.button, "GENERAR GRUPOS").click().run()
+        widget(at.button, "Crear competencia y grupos").click().run()
         self.assertFalse(at.exception)
         c = self.repo.read()[0].competitions["Seguidor"]
         self.assertEqual([t.grupo for t in c.teams], list("ABCABCABCA"))
+
+    def create_timed(self, at, name):
+        self.page(at,"Configuración")
+        widget(at.selectbox,"Tipo de competencia").set_value("Seguidor de línea por tiempos").run()
+        widget(at.text_input,"Nombre de la competencia").set_value(name)
+        widget(at.number_input,"Cantidad total de equipos").set_value(10)
+        widget(at.number_input,"Cantidad de grupos").set_value(3)
+        widget(at.button,"Crear competencia y grupos").click().run()
+        self.assertFalse(at.exception)
+        self.assertFalse(at.error)
+
+    def test_delete_recreate_line_from_ui_is_ready_without_second_button(self):
+        at=self.app(True);self.create_timed(at,"Línea")
+        self.assertEqual(widget(at.selectbox,"Competencia activa").value,"Línea")
+        c=self.repo.read()[0].competitions['Línea']
+        self.assertEqual([t.grupo for t in c.teams],list('ABCABCABCA'))
+        self.assertEqual(len(c.timing['Linea1']),10)
+        self.page(at,"Administración")
+        widget(at.selectbox,"Acción").set_value("Eliminar")
+        widget(at.text_input,"Nombre exacto de la competencia").set_value("Línea")
+        widget(at.checkbox,"Confirmo la acción y el respaldo de los datos anteriores").check()
+        widget(at.button,"Aplicar acción").click().run()
+        self.assertFalse(self.repo.read()[0].competitions)
+        self.create_timed(at,"Línea")
+        self.assertEqual(len(self.repo.read()[0].competitions['Línea'].timing['Linea1']),10)
+        self.assertEqual(len(self.repo.read()[0].archived),1)
+        self.page(at,"Registro de tiempos")
+        self.assertTrue(any(w.label=='Minutos intento 1' for w in at.number_input))
+
+    def test_new_competition_is_selected_and_admin_navigation_is_compact(self):
+        self.load_tournament();at=self.app(True);self.create_timed(at,"Línea nueva")
+        self.assertEqual(widget(at.selectbox,"Competencia activa").value,"Línea nueva")
+        self.assertEqual(widget(at.radio,"Navegación").options,['Inicio','Fases','Podio','Competencia','Registro de tiempos','Historial'])
+        self.assertEqual(len(self.repo.read()[0].competitions['Sumo'].teams),8)
+        self.page(at,"Administración")
+        self.assertEqual(sum(b.label=='Aplicar acción' for b in at.button),1)
+        self.assertFalse(any(b.label in ['Eliminar competencia','Confirmar reinicio','Ejecutar recuperación'] for b in at.button))
+
+    def test_old_unstarted_competition_can_generate_missing_teams_in_one_step(self):
+        _,rev=self.repo.read()
+        self.repo.transact(rev,lambda s:crear_competencia(s,Config('Pendiente',4,2,cupos_clasificados=4,sistema='Tiempos')))
+        at=self.app(True);self.page(at,'Configuración')
+        widget(at.button,'Guardar y generar grupos').click().run()
+        self.assertFalse(at.exception)
+        c=self.repo.read()[0].competitions['Pendiente']
+        self.assertEqual(len(c.teams),4);self.assertEqual(c.config.fase_actual,'Linea1')
 
     def test_entire_bracket_from_ui_and_new_session(self):
         self.load_tournament()
@@ -223,12 +278,12 @@ class InterfaceTests(unittest.TestCase):
         self.load_tournament()
         at = self.app(True)
         self.page(at, "Administración")
-        widget(at.selectbox, "Qué quieres reiniciar").set_value("Competencia completa")
-        widget(at.button, "Confirmar reinicio").click().run()
+        widget(at.selectbox, "Acción").set_value("Reiniciar competencia")
+        widget(at.button, "Aplicar acción").click().run()
         self.assertEqual(len(self.repo.read()[0].competitions["Sumo"].teams), 8)
-        widget(at.text_input, "Escribe el nombre exacto de la competencia para confirmar").set_value("Sumo")
-        widget(at.checkbox, "Entiendo que esta acción elimina los datos indicados").check()
-        widget(at.button, "Confirmar reinicio").click().run()
+        widget(at.text_input, "Nombre exacto de la competencia").set_value("Sumo")
+        widget(at.checkbox, "Confirmo la acción y el respaldo de los datos anteriores").check()
+        widget(at.button, "Aplicar acción").click().run()
         self.assertFalse(at.exception)
         self.assertFalse(self.repo.read()[0].competitions["Sumo"].teams)
 
@@ -272,9 +327,9 @@ class InterfaceTests(unittest.TestCase):
         state=imported()
         self.repo.transact(rev,lambda s:s.competitions.update(state.competitions))
         at=self.app(True);self.page(at,"Configuración")
-        widget(at.number_input,"Equipos inscritos en competencia").set_value(54)
-        widget(at.number_input,"Cantidad de bloques / grupos").set_value(8)
-        widget(at.button,"Aplicar distribución").click().run()
+        widget(at.number_input,"Cantidad de equipos").set_value(54)
+        widget(at.number_input,"Cantidad de grupos").set_value(8)
+        widget(at.button,"Guardar cambios").click().run()
         self.assertFalse(at.exception)
         c=self.repo.read()[0].competitions['Sumo']
         self.assertEqual(len(c.teams),54);self.assertEqual(len(c.reserve),31)

@@ -1,6 +1,6 @@
 # Verificación · 2 octubre 2026
 
-114 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+120 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -52,3 +52,12 @@ Verificación de columnas de tiempo separadas:
 - Los cambios al mejor tiempo calculado no modifican los intentos ni la clasificación.
 - Reinicio forzado con la nueva estructura conserva otras competencias.
 - La vista pública del mejor tiempo y el historial administrativo presentan minutos, segundos y milisegundos separados.
+
+Verificación de creación y gestión unificada:
+
+- Crear una competencia prepara equipos y grupos en una transacción; seguidor de línea habilita sus cuatro hojas con el formato MM, SS y MS existente.
+- Eliminar y volver a crear el mismo nombre produce equipos nuevos, conserva la papelera y vuelve a mostrar las hojas de tiempos.
+- El tipo de competencia requiere una selección explícita; al crear, la nueva competencia queda seleccionada aunque existan otras.
+- Una competencia antigua sin iniciar puede completar equipos y generar grupos en un solo paso.
+- Navegación administrativa agrupada en Competencia, Resultados/Registro de tiempos e Historial; formulario único de configuración y formulario único de eliminación/reinicio con respaldo.
+- Reiniciar la fase actual desde el formulario unificado conserva las fases anteriores.

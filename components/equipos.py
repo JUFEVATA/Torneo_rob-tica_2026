@@ -40,7 +40,7 @@ def render(c, mode, revision, admin):
                 execute(mode, revision, lambda s: agregar_equipos(s.competitions[c.config.competencia], names))
         with tab3:
             st.caption("UTF-8, encabezado nombre_equipo; opcional: numero_participantes. Importación completa o sin cambios.")
-            st.download_button("Descargar plantilla CSV", b"nombre_equipo,numero_participantes\nSwampy,3\nHercules,2\n", "plantilla_equipos.csv")
+            st.download_button("Descargar plantilla CSV", b"nombre_equipo,numero_participantes\nSwampy,2\nHercules,2\n", "plantilla_equipos.csv")
             upload = st.file_uploader("Seleccionar lista", type=["csv"])
             if upload and st.button("Importar equipos"):
                 try:
@@ -51,7 +51,7 @@ def render(c, mode, revision, admin):
         if st.button("Completar con Equipo 1, Equipo 2…", disabled=len(c.teams) >= c.config.numero_equipos):
             execute(mode, revision, lambda s: completar_genericos(s.competitions[c.config.competencia]))
     else:
-        st.info("Los grupos están guardados. Puedes editar nombres e integrantes; para agregar o eliminar equipos, reinicia los grupos.")
+        st.info("Los grupos están guardados. Puedes editar nombres e integrantes; para cambiar la cantidad de equipos, usa Configuración.")
     if c.teams:
         st.subheader("Editar un equipo")
         selected = st.selectbox("Equipo", [t.id_equipo for t in c.teams], format_func=c.name)

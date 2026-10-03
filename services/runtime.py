@@ -77,7 +77,7 @@ def read_state(mode):
 read_state.clear = _read_data.clear
 
 
-def execute(mode, revision, operation, message="Cambios guardados.", recovery=None):
+def execute(mode, revision, operation, message="Cambios guardados.", recovery=None, select_competition=None):
     if not is_admin():
         st.error("Inicia sesión como administrador para modificar el torneo.")
         return
@@ -100,6 +100,8 @@ def execute(mode, revision, operation, message="Cambios guardados.", recovery=No
         return
     read_state.clear()
     st.session_state.flash = message
+    if select_competition:
+        st.session_state.pending_competition = " ".join(select_competition.split())
     st.rerun()
 
 

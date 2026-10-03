@@ -11,6 +11,10 @@ def force_operation(state, name, action):
     if action == "Eliminar":
         archive(state, name)
         return
+    if action in ("Reiniciar fase actual", "Reiniciar eliminatorias"):
+        from core.tournament import reiniciar
+        reiniciar(state.competitions[name], "Fase actual" if action == "Reiniciar fase actual" else "Eliminatorias", True)
+        return
     if action not in ("Reiniciar resultados", "Reiniciar competencia"):
         raise ValidationError("Acción de recuperación desconocida.")
     c = state.competitions[name]

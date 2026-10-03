@@ -75,14 +75,22 @@ with st.sidebar:
     editable_at_start = is_admin()
     if editable_at_start:
         st.caption("COMPETENCIA")
-        selected = st.selectbox("Competencia activa", options, label_visibility="collapsed") if options else None
+        pending = st.session_state.pop("pending_competition", None)
+        if pending in options:
+            st.session_state.active_competition = pending
+        if st.session_state.get("active_competition") not in options:
+            st.session_state.active_competition = options[0] if options else None
+        selected = st.selectbox("Competencia activa", options, label_visibility="collapsed", key="active_competition") if options else None
     else:
         selected = public_name(initial_state)
         if selected:
             st.markdown(f'<div class="competition-name">{escape(selected)}</div>', unsafe_allow_html=True)
     timed = selected and initial_state.competitions[selected].config.sistema == "Tiempos"
-    pages = PUBLIC_PAGES + (["Publicación", "Configuración", "Equipos", "Grupos", "Registro de tiempos" if timed else "Eliminatorias", "Historial", "Administración"] if editable_at_start else [])
-    page = st.radio("Navegación", pages, label_visibility="collapsed", key="admin_navigation" if editable_at_start else "public_navigation")
+    pages = PUBLIC_PAGES + (["Competencia", "Registro de tiempos" if timed else "Resultados", "Historial"] if editable_at_start else [])
+    nav_key = "admin_navigation" if editable_at_start else "public_navigation"
+    if st.session_state.get(nav_key) not in pages:
+        st.session_state[nav_key] = "Competencia" if editable_at_start and not options else "Inicio"
+    page = st.radio("Navegación", pages, label_visibility="collapsed", key=nav_key)
     st.divider()
     if is_admin():
         st.caption("● MODO ADMINISTRADOR")
@@ -122,14 +130,19 @@ def content():
         st.warning("Hay decisiones en la hoja pendientes de revisión. Se muestran los últimos resultados validados.")
         if editable:
             st.error(state.sync_error)
-    if page == "Administración" and editable:
-        admin.render(state, c, mode, revision, True)
-        return
-    if page == "Configuración" or not c:
-        if editable:
+    if editable and (page == "Competencia" or not c):
+        section = st.radio("Gestionar competencia", ["Configuración", "Equipos", "Publicación", "Administración"], horizontal=True, key="manage_section")
+        if section == "Administración":
+            admin.render(state, c, mode, revision, True)
+        elif section == "Configuración" or not c:
             configuracion.render(state, c, mode, revision, True)
+        elif section == "Equipos":
+            equipos.render(c, mode, revision, True)
         else:
-            st.info("No hay competencias publicadas.")
+            publicacion.render(state, c, mode, revision)
+        return
+    if not c:
+        st.info("No hay competencias publicadas.")
         return
     st.markdown('<div class="eyebrow">CENTRO DE COMPETENCIA / ' + page.upper() + '</div>', unsafe_allow_html=True)
     if page == "Inicio":
@@ -140,23 +153,21 @@ def content():
         publico.render_podium(c)
         if editable:
             publicacion.edit_podium(c, mode, revision)
-    elif page == "Publicación" and editable:
-        publicacion.render(state, c, mode, revision)
-    elif page == "Historial":
+    elif page == "Historial" and editable:
         participantes.historial(c)
-    elif page == "Equipos":
-        equipos.render(c, mode, revision, editable)
-    elif page == "Grupos":
-        grupos.render(c, mode, revision, editable)
     elif page == "Registro de tiempos" and editable and c.config.sistema == "Tiempos":
         tiempos.render(c, mode, revision)
-    elif c.config.sistema == "Libre" and page == "Eliminatorias":
-        rondas_libres.render(c, mode, revision, editable)
-    elif page == "Eliminatorias":
-        if not c.matches:
-            clasificados.render(c, mode, revision, editable)
+    elif page == "Resultados" and editable:
+        section = st.radio("Registrar resultados", ["Grupos", "Eliminatorias"], horizontal=True)
+        if section == "Grupos":
+            grupos.render(c, mode, revision, True)
+        elif c.config.sistema == "Libre":
+            rondas_libres.render(c, mode, revision, True)
+        elif not c.matches:
+            clasificados.render(c, mode, revision, True)
         else:
-            eliminatorias.render(c, mode, revision, editable)
+            eliminatorias.render(c, mode, revision, True)
+
 
 
 content()
