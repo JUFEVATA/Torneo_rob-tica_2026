@@ -1,6 +1,6 @@
 # Verificación · 2 octubre 2026
 
-106 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
+108 pruebas locales aprobadas con Python 3.14, incluida la interfaz real de Streamlit mediante AppTest.
 
 - Cambiar cantidades aplica la distribución sin casilla; una segunda lectura no vuelve a escribir.
 - Cambiar grupos con resultados conserva equipos, identidades y clasificación.
@@ -41,3 +41,4 @@ Verificaciones de recuperación y seguidor de línea:
 - Borrado de la competencia dañada conserva otras competencias y guarda las entradas originales; revisión obsoleta impide sobrescribir una edición concurrente.
 - Acceso de administrador y recuperación desde el error inicial comprobados con AppTest.
 - Interfaz de tiempos captura minutos, segundos y milisegundos y todas sus páginas públicas carecen de CSV.
+- Reducir el número de equipos de seguidor de línea por debajo de 16 adapta la configuración interna y conserva los nombres restantes en Reserva; no exige modificar los cupos del reglamento.

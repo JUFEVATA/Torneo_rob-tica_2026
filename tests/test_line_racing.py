@@ -144,6 +144,22 @@ class RacingTests(unittest.TestCase):
         state,c=line_state(2);c.teams[0].numero_participantes=3
         with self.assertRaisesRegex(ValidationError,'dos integrantes'):validar_estado(state)
 
+    def test_resize_line_roster_below_16_adapts_internal_capacity(self):
+        from core.group_board import resize_groups
+        state,c=line_state()
+        resize_groups(c,10,4,16)
+        self.assertEqual(c.config.cupos_clasificados,8)
+        self.assertEqual(len(c.rounds['Linea1']),10)
+        self.assertEqual(len(c.reserve),22)
+        validar_estado(state)
+
+    def test_configure_line_before_start_below_16(self):
+        from core.tournament import configurar
+        state=State();crear_competencia(state,Config('Línea',32,4,cupos_clasificados=16,sistema='Tiempos'))
+        c=state.competitions['Línea'];configurar(c,10,2,0,16)
+        self.assertEqual(c.config.cupos_clasificados,8)
+        iniciar_grupos(c,genericos=True);validar_estado(state)
+
     def test_native_time_formats_and_dropdowns(self):
         from services.sheet_style import line_format_requests
         state,_=line_state(4);rows=stage_tables(state)['SL Fase 1']

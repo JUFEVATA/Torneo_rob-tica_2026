@@ -41,6 +41,8 @@ def configurar(c: Competition, total: int, grupos: int, participantes: int, cupo
         raise ValidationError("Reinicia la fase de grupos para cambiar la estructura.")
     if total < len(c.teams):
         raise ValidationError("El total esperado no puede ser menor que los equipos registrados.")
+    if c.config.sistema == "Tiempos" and type(total) is int and total >= 2:
+        cupos = min(16, max(n for n in (2,4,8,16,32,64) if n <= total))
     c.config.numero_equipos, c.config.numero_grupos = total, grupos
     c.config.numero_participantes, c.config.cupos_clasificados = participantes, cupos
     validar_config(c.config)
